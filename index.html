@@ -244,10 +244,15 @@ html { overflow-x: hidden; }
   .metrics, .metrics-5 { grid-template-columns: 1fr 1fr; gap: 8px; }
   .form-row-3, .form-row-2, .form-row-4 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .main { padding: 14px; padding-bottom: 90px; overflow-x: hidden; max-width: 100vw; }
-  .tx-item { overflow: hidden; }
-  .tx-amount { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
-  .cat-track { max-width: 100%; overflow: hidden; }
+  .main { padding: 12px; padding-bottom: 90px; overflow-x: hidden; max-width: 100vw; }
+  .app, .page, .card, .metric, .nw-banner { max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
+  .nw-banner { padding: 16px 14px; gap: 12px; }
+  .nw-cols { gap: 16px; flex-wrap: wrap; }
+  .nw-value { font-size: 24px !important; word-break: break-all; }
+  .tx-item { max-width: 100%; box-sizing: border-box; }
+  .tx-amount { flex-shrink: 0; font-size: 13px; }
+  .metrics, .metrics-5 { max-width: 100%; }
+  .cat-row { max-width: 100%; overflow: hidden; }
   .page-title { font-size: 19px; }
   .metric { padding: 12px 14px; }
   .metric .m-value { font-size: 17px; }
