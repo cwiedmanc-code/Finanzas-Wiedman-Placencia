@@ -493,6 +493,12 @@ html { overflow-x: hidden; }
       </div>
       <!-- Patrimonio neto mini -->
       <div id="dash-patrimonio-banner"></div>
+      <!-- Gráfico comparativo -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Comparativo 3 meses</div>
+        <div id="dash-comparativo"><div class="loader"><div class="spinner"></div>Cargando...</div></div>
+        <div id="dash-comparativo-detail" style="margin-top:12px"></div>
+      </div>
       <div class="grid-2">
         <div class="card">
           <div class="card-title">Gastos por categoría</div>
@@ -1068,6 +1074,159 @@ async function delTx(id, el) {
 }
 
 // ══════════════════════════════════════════════
+// COMPARATIVO 3 MESES
+// ══════════════════════════════════════════════
+async function loadTxForMonth(year, month) {
+  try {
+    if (SCRIPT_URL) {
+      const d = await apiGet({action:'getTx', year, month});
+      if (d && d.rows) return d.rows;
+    }
+  } catch(e) {}
+  const prefix = `${year}-${pad(month)}`;
+  return localTx.filter(t => t.Fecha && t.Fecha.startsWith(prefix));
+}
+
+async function renderComparativoChart(clickedType) {
+  const container = document.getElementById('dash-comparativo');
+  container.innerHTML = '<div class="loader"><div class="spinner"></div>Cargando...</div>';
+  document.getElementById('dash-comparativo-detail').innerHTML = '';
+
+  // Calcular los 3 meses
+  const months = [];
+  for (let i = 2; i >= 0; i--) {
+    let m = curMonth - i, y = curYear;
+    if (m < 1) { m += 12; y--; }
+    months.push({ year: y, month: m });
+  }
+
+  const data = await Promise.all(months.map(({year, month}) => loadTxForMonth(year, month)));
+  const metrics = data.map(rows => calcMetrics(rows));
+  const labels  = months.map(({year, month}) => MONTHS[month].substring(0,3) + ' ' + String(year).slice(2));
+
+  const W = Math.min(container.offsetWidth || 320, 520);
+  const H = 180;
+  const PAD = { top: 16, right: 12, bottom: 28, left: 46 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const maxVal = Math.max(...metrics.flatMap(m => [m.ing, m.gas, m.aho]), 1);
+  const barTypes = [
+    { key:'ing', color:'#1D9E75', label:'Ingresos' },
+    { key:'gas', color:'#C44B2B', label:'Gastos' },
+    { key:'aho', color:'#185FA5', label:'Ahorro' }
+  ];
+  const groupW  = chartW / months.length;
+  const barW    = Math.floor(groupW / (barTypes.length + 1));
+  const gap     = Math.floor(barW * 0.25);
+
+  function fmtAxis(v) {
+    if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
+    if (v >= 1e3) return '$' + Math.round(v/1e3) + 'K';
+    return '$' + v;
+  }
+
+  // Eje Y — 4 ticks
+  let yTicks = '';
+  for (let i = 0; i <= 3; i++) {
+    const val = Math.round(maxVal * i / 3);
+    const y   = PAD.top + chartH - Math.round(chartH * i / 3);
+    yTicks += `<line x1="${PAD.left}" x2="${PAD.left + chartW}" y1="${y}" y2="${y}" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <text x="${PAD.left - 4}" y="${y + 4}" text-anchor="end" font-size="9" fill="var(--text3)">${fmtAxis(val)}</text>`;
+  }
+
+  // Barras
+  let bars = '';
+  months.forEach(({year, month}, gi) => {
+    const groupX = PAD.left + gi * groupW + gap;
+    barTypes.forEach((bt, bi) => {
+      const val   = metrics[gi][bt.key];
+      const bh    = Math.round(chartH * val / maxVal);
+      const bx    = groupX + bi * (barW + gap);
+      const by    = PAD.top + chartH - bh;
+      const isActive = clickedType === bt.key;
+      bars += `<rect x="${bx}" y="${by}" width="${barW}" height="${bh}"
+        fill="${bt.color}" opacity="${clickedType && !isActive ? 0.3 : 0.9}" rx="2"
+        style="cursor:pointer" onclick="showComparativoDetail('${bt.key}','${bt.label}')"
+        data-type="${bt.key}" data-month="${month}" data-year="${year}">
+        <title>${bt.label} ${labels[gi]}: ${fmtAxis(val)}</title>
+      </rect>`;
+    });
+    // Label mes
+    const lx = groupX + (barTypes.length * (barW + gap)) / 2 - gap/2;
+    bars += `<text x="${lx}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--text2)" font-weight="500">${labels[gi]}</text>`;
+  });
+
+  // Leyenda
+  const legendY = H - 2;
+  let legend = barTypes.map((bt, i) =>
+    `<g style="cursor:pointer" onclick="showComparativoDetail('${bt.key}','${bt.label}')">
+      <rect x="${PAD.left + i * 90}" y="${legendY}" width="10" height="10" fill="${bt.color}" rx="2"/>
+      <text x="${PAD.left + i * 90 + 14}" y="${legendY + 9}" font-size="10" fill="var(--text2)">${bt.label}</text>
+    </g>`
+  ).join('');
+
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H + 18}" width="100%" style="overflow:visible">
+    ${yTicks}${bars}${legend}
+  </svg>`;
+
+  // Si ya había un tipo seleccionado, re-render el detalle
+  if (clickedType) {
+    const label = barTypes.find(b => b.key === clickedType)?.label || clickedType;
+    showComparativoDetail(clickedType, label, data, months, labels, true);
+  }
+
+  // Guardar data para uso en showComparativoDetail
+  window._comparativoData = { data, months, labels };
+}
+
+function showComparativoDetail(type, label, data, months, labels, skipRender) {
+  if (!skipRender) {
+    const cd = window._comparativoData;
+    if (cd) { data = cd.data; months = cd.months; labels = cd.labels; }
+    renderComparativoChart(type);
+    return;
+  }
+  const det = document.getElementById('dash-comparativo-detail');
+  if (type !== 'gas') {
+    // Para ingresos y ahorro: tabla simple por mes
+    let html = `<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">${label} por mes</div>`;
+    months.forEach(({year, month}, i) => {
+      const { ing, gas, aho } = calcMetrics(data[i]);
+      const val = type === 'ing' ? ing : aho;
+      html += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text2)">${labels[i]}</span>
+        <span style="font-family:var(--mono);font-weight:600;color:var(--text)">$${fmt(val)}</span>
+      </div>`;
+    });
+    det.innerHTML = html;
+    return;
+  }
+  // Gastos: desglose por categoría por mes
+  let html = `<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Gastos por categoría</div>`;
+  // Recoger todas las categorías
+  const allCats = [...new Set(data.flatMap(rows => rows.filter(t=>t.Tipo==='gasto').map(t=>t.Categoria)))].sort();
+  if (!allCats.length) { det.innerHTML = '<div class="empty" style="font-size:12px">Sin gastos</div>'; return; }
+
+  // Header
+  html += `<div style="display:grid;grid-template-columns:1fr ${months.map(()=>'auto').join(' ')};gap:6px;font-size:10px;color:var(--text3);font-weight:600;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:4px">
+    <span>Categoría</span>${labels.map(l=>`<span style="text-align:right">${l}</span>`).join('')}
+  </div>`;
+
+  allCats.forEach(cat => {
+    const vals = data.map(rows => {
+      return rows.filter(t=>t.Tipo==='gasto'&&t.Categoria===cat).reduce((s,t)=>s+Number(t.Monto),0);
+    });
+    if (vals.every(v=>v===0)) return;
+    html += `<div style="display:grid;grid-template-columns:1fr ${months.map(()=>'auto').join(' ')};gap:6px;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text2)">${cat}</span>
+      ${vals.map(v=>`<span style="text-align:right;font-family:var(--mono);color:${v>0?'var(--text)':'var(--text3)'}">$${fmtK(v)}</span>`).join('')}
+    </div>`;
+  });
+  det.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
 // RENDER — DASHBOARD + MOVIMIENTOS
 // ══════════════════════════════════════════════
 function calcMetrics(rows) {
@@ -1087,6 +1246,17 @@ function calcPatrimonioNeto() {
 
 function renderDashboard() {
   const { ing, gas, aho, lib, tasa } = calcMetrics(cachedTx);
+
+  // ── Saldo arrastre ──
+  const ym = `${curYear}-${String(curMonth).padStart(2,'0')}`;
+  const saldoAnterior = parseFloat(localStorage.getItem('saldo_arrastre_' + ym) || 0);
+  const libAcumulado = lib + saldoAnterior;
+  // Guardar arrastre para el mes siguiente
+  const nextM = curMonth === 12 ? 1 : curMonth + 1;
+  const nextY = curMonth === 12 ? curYear + 1 : curYear;
+  const nextYM = `${nextY}-${String(nextM).padStart(2,'0')}`;
+  localStorage.setItem('saldo_arrastre_' + nextYM, libAcumulado);
+
   document.getElementById('m-ing').textContent = '$' + fmtK(ing);
   document.getElementById('m-gas').textContent = '$' + fmtK(gas);
   const ahoEl = document.getElementById('m-ahorro');
@@ -1094,8 +1264,20 @@ function renderDashboard() {
   const subEl = document.getElementById('m-tasa-sub');
   if (subEl) subEl.textContent = tasa + '% de ingresos · Meta: ≥ 20%';
   const libEl = document.getElementById('m-libre');
-  libEl.textContent = (lib < 0 ? '-$' : '$') + fmtK(Math.abs(lib));
-  libEl.className = 'm-value ' + (lib >= 0 ? 'm-pos' : 'm-neg');
+  libEl.textContent = (libAcumulado < 0 ? '-$' : '$') + fmtK(Math.abs(libAcumulado));
+  libEl.className = 'm-value ' + (libAcumulado >= 0 ? 'm-pos' : 'm-neg');
+  if (saldoAnterior !== 0) {
+    const subLibEl = libEl.nextElementSibling;
+    const hint = `inc. $${fmtK(Math.abs(saldoAnterior))} arrastre`;
+    if (subLibEl && subLibEl.classList.contains('m-sub')) {
+      subLibEl.textContent = hint;
+    } else {
+      const s = document.createElement('div');
+      s.className = 'm-sub';
+      s.textContent = hint;
+      libEl.insertAdjacentElement('afterend', s);
+    }
+  }
 
   // Mini patrimonio neto banner
   const { totalActivos, totalPasivos, neto } = calcPatrimonioNeto();
@@ -1115,6 +1297,9 @@ function renderDashboard() {
   } else {
     document.getElementById('dash-patrimonio-banner').innerHTML = '';
   }
+
+  // Gráfico comparativo
+  renderComparativoChart();
 
   // Cat bars
   const catMap = {};
