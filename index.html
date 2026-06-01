@@ -1092,36 +1092,24 @@ async function loadTxForMonth(year, month) {
 
 async function renderComparativoChart(clickedType) {
   const container = document.getElementById('dash-comparativo');
-  container.innerHTML = '<div class="loader"><div class="spinner"></div>Cargando...</div>';
+  container.innerHTML = '<div class="loader"><div class="spinner"></div>Cargando año 2026...</div>';
   document.getElementById('dash-comparativo-detail').innerHTML = '';
 
-  // Calcular los 3 meses
+  // 12 meses del año 2026, hasta el mes actual
+  const yearChart = 2026;
+  const maxMonth  = (curYear === yearChart) ? curMonth : 12;
   const months = [];
-  for (let i = 2; i >= 0; i--) {
-    let m = curMonth - i, y = curYear;
-    if (m < 1) { m += 12; y--; }
-    months.push({ year: y, month: m });
-  }
+  for (let m = 1; m <= maxMonth; m++) months.push({ year: yearChart, month: m });
 
-  const data = await Promise.all(months.map(({year, month}) => loadTxForMonth(year, month)));
+  const data    = await Promise.all(months.map(({year, month}) => loadTxForMonth(year, month)));
   const metrics = data.map(rows => calcMetrics(rows));
-  const labels  = months.map(({year, month}) => MONTHS[month].substring(0,3) + ' ' + String(year).slice(2));
+  const labels  = months.map(({month}) => MONTHS[month].substring(0,3));
 
-  const W = Math.min(container.offsetWidth || 320, 520);
-  const H = 180;
-  const PAD = { top: 16, right: 12, bottom: 28, left: 46 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-
-  const maxVal = Math.max(...metrics.flatMap(m => [m.ing, m.gas, m.aho]), 1);
-  const barTypes = [
+  const lineTypes = [
     { key:'ing', color:'#1D9E75', label:'Ingresos' },
     { key:'gas', color:'#C44B2B', label:'Gastos' },
     { key:'aho', color:'#185FA5', label:'Ahorro' }
   ];
-  const groupW  = chartW / months.length;
-  const barW    = Math.floor(groupW / (barTypes.length + 1));
-  const gap     = Math.floor(barW * 0.25);
 
   function fmtAxis(v) {
     if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
@@ -1129,57 +1117,70 @@ async function renderComparativoChart(clickedType) {
     return '$' + v;
   }
 
-  // Eje Y — 4 ticks
+  const W      = Math.max(container.offsetWidth || 320, 280);
+  const H      = 200;
+  const PAD    = { top: 16, right: 16, bottom: 36, left: 50 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+  const n      = months.length;
+
+  const maxVal = Math.max(...metrics.flatMap(m => [m.ing, m.gas, m.aho]), 1);
+
+  function xOf(i)   { return PAD.left + (n === 1 ? chartW/2 : i * chartW / (n - 1)); }
+  function yOf(val) { return PAD.top + chartH - Math.round(chartH * val / maxVal); }
+
+  // Eje Y
   let yTicks = '';
-  for (let i = 0; i <= 3; i++) {
-    const val = Math.round(maxVal * i / 3);
-    const y   = PAD.top + chartH - Math.round(chartH * i / 3);
-    yTicks += `<line x1="${PAD.left}" x2="${PAD.left + chartW}" y1="${y}" y2="${y}" stroke="var(--border)" stroke-dasharray="3,3"/>
-      <text x="${PAD.left - 4}" y="${y + 4}" text-anchor="end" font-size="9" fill="var(--text3)">${fmtAxis(val)}</text>`;
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round(maxVal * i / 4);
+    const y   = PAD.top + chartH - Math.round(chartH * i / 4);
+    yTicks += `<line x1="${PAD.left}" x2="${PAD.left + chartW}" y1="${y}" y2="${y}" stroke="var(--border)" stroke-dasharray="3,3" stroke-width="1"/>
+      <text x="${PAD.left - 6}" y="${y + 4}" text-anchor="end" font-size="9" fill="var(--text3)">${fmtAxis(val)}</text>`;
   }
 
-  // Barras
-  let bars = '';
-  months.forEach(({year, month}, gi) => {
-    const groupX = PAD.left + gi * groupW + gap;
-    barTypes.forEach((bt, bi) => {
-      const val   = metrics[gi][bt.key];
-      const bh    = Math.round(chartH * val / maxVal);
-      const bx    = groupX + bi * (barW + gap);
-      const by    = PAD.top + chartH - bh;
-      const isActive = clickedType === bt.key;
-      bars += `<rect x="${bx}" y="${by}" width="${barW}" height="${bh}"
-        fill="${bt.color}" opacity="${clickedType && !isActive ? 0.3 : 0.9}" rx="2"
-        style="cursor:pointer" onclick="showComparativoDetail('${bt.key}','${bt.label}')"
-        data-type="${bt.key}" data-month="${month}" data-year="${year}">
-        <title>${bt.label} ${labels[gi]}: ${fmtAxis(val)}</title>
-      </rect>`;
+  // Eje X — labels de meses
+  let xLabels = '';
+  months.forEach(({month}, i) => {
+    xLabels += `<text x="${xOf(i)}" y="${PAD.top + chartH + 16}" text-anchor="middle" font-size="9" fill="var(--text3)">${labels[i]}</text>`;
+  });
+
+  // Líneas y puntos
+  let lines = '';
+  lineTypes.forEach(lt => {
+    const pts = metrics.map((m, i) => `${xOf(i)},${yOf(m[lt.key])}`).join(' ');
+    const isActive = !clickedType || clickedType === lt.key;
+    lines += `<polyline points="${pts}" fill="none" stroke="${lt.color}" stroke-width="${isActive ? 2.5 : 1}"
+      opacity="${isActive ? 1 : 0.2}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    // Puntos clicables
+    metrics.forEach((m, i) => {
+      const val = m[lt.key];
+      lines += `<circle cx="${xOf(i)}" cy="${yOf(val)}" r="${isActive ? 4 : 2.5}"
+        fill="${lt.color}" opacity="${isActive ? 1 : 0.2}" style="cursor:pointer"
+        onclick="showComparativoDetail('${lt.key}','${lt.label}')">
+        <title>${lt.label} ${labels[i]}: ${fmtAxis(val)}</title>
+      </circle>`;
     });
-    // Label mes
-    const lx = groupX + (barTypes.length * (barW + gap)) / 2 - gap/2;
-    bars += `<text x="${lx}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--text2)" font-weight="500">${labels[gi]}</text>`;
   });
 
   // Leyenda
-  const legendY = H - 2;
-  let legend = barTypes.map((bt, i) =>
-    `<g style="cursor:pointer" onclick="showComparativoDetail('${bt.key}','${bt.label}')">
-      <rect x="${PAD.left + i * 90}" y="${legendY}" width="10" height="10" fill="${bt.color}" rx="2"/>
-      <text x="${PAD.left + i * 90 + 14}" y="${legendY + 9}" font-size="10" fill="var(--text2)">${bt.label}</text>
+  const legendY = H + 2;
+  let legend = lineTypes.map((lt, i) =>
+    `<g style="cursor:pointer" onclick="showComparativoDetail('${lt.key}','${lt.label}')">
+      <line x1="${PAD.left + i * 100}" y1="${legendY + 5}" x2="${PAD.left + i * 100 + 14}" y2="${legendY + 5}" stroke="${lt.color}" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="${PAD.left + i * 100 + 7}" cy="${legendY + 5}" r="3" fill="${lt.color}"/>
+      <text x="${PAD.left + i * 100 + 20}" y="${legendY + 9}" font-size="10" fill="var(--text2)">${lt.label}</text>
     </g>`
   ).join('');
 
-  container.innerHTML = `<svg viewBox="0 0 ${W} ${H + 18}" width="100%" style="overflow:visible">
-    ${yTicks}${bars}${legend}
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H + 20}" width="100%" style="overflow:visible">
+    ${yTicks}${xLabels}${lines}${legend}
   </svg>`;
 
-  // Si ya había un tipo seleccionado, re-render el detalle
   if (clickedType) {
-    const label = barTypes.find(b => b.key === clickedType)?.label || clickedType;
+    const label = lineTypes.find(b => b.key === clickedType)?.label || clickedType;
     showComparativoDetail(clickedType, label, data, months, labels, true);
   }
 
-  // Guardar data para uso en showComparativoDetail
   window._comparativoData = { data, months, labels };
 }
 
