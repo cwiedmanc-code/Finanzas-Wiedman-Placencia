@@ -703,7 +703,10 @@ html { overflow-x: hidden; }
 
           <!-- Inversiones 3 capas -->
           <div class="card">
-            <div class="card-title">Sistema de inversión — 3 capas</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="card-title" style="margin-bottom:0">Sistema de inversión — 3 capas</div>
+              <button class="btn btn-success" style="font-size:12px;padding:6px 12px" onclick="openModalInversion()">+ Agregar</button>
+            </div>
             <div id="pat-inversiones-list"><div class="loader"><div class="spinner"></div>Cargando...</div></div>
           </div>
         </div>
@@ -1542,6 +1545,12 @@ function renderPatrimonio() {
 // ══════════════════════════════════════════════
 // MODALES — ACTIVOS / PASIVOS
 // ══════════════════════════════════════════════
+function openModalInversion() {
+  openModalActivo();
+  document.getElementById('act-tipo').value = 'inversion';
+  onActTipoChange();
+}
+
 function openModalActivo(editId) {
   clearActiModal();
   if (editId) {
