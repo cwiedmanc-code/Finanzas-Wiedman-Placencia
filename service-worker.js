@@ -1,6 +1,6 @@
 // ── VERSIÓN: cambia este número cada vez que hagas un deploy ──
 // Ej: poritos-v2, poritos-v3, poritos-v4...
-const CACHE = 'poritos-v3';
+const CACHE = 'poritos-v4';
 
 const ASSETS = [
   '/Finanzas-Wiedman-Placencia/',
@@ -40,10 +40,3 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached =>
       cached || fetch(e.request).then(resp => {
         if (resp.ok && e.request.method === 'GET') {
-          caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
-        }
-        return resp;
-      }).catch(() => cached)
-    )
-  );
-});
