@@ -235,6 +235,30 @@ html { overflow-x: hidden; }
 .empty { text-align: center; padding: 32px 20px; color: var(--text3); font-size: 13px; }
 .empty .e-icon { font-size: 28px; margin-bottom: 8px; }
 
+/* ── Tarjetas de crédito ── */
+.tc-card-visual { border-radius: 16px; padding: 22px 24px; position: relative; overflow: hidden; color: #fff; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 8px 28px rgba(0,0,0,0.20); margin-bottom: 16px; transition: transform 0.2s; }
+.tc-card-visual:hover { transform: translateY(-2px); }
+.tc-card-chip { width: 32px; height: 24px; background: linear-gradient(135deg, rgba(255,215,0,0.75) 0%, rgba(210,140,0,0.55) 100%); border-radius: 5px; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
+.tc-card-logo { position: absolute; top: 18px; right: 20px; background: rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+.tc-cupo-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; margin-top: 6px; width: 100%; }
+.tc-cupo-fill { height: 100%; background: rgba(255,255,255,0.75); border-radius: 20px; transition: width 0.4s; }
+.tc-compra-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; transition: background 0.1s; }
+.tc-compra-item:hover { background: var(--surface2); }
+.tc-compra-dot { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.tc-compra-info { flex: 1; min-width: 0; }
+.tc-compra-desc { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-compra-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.tc-compra-right { text-align: right; flex-shrink: 0; }
+.tc-compra-cuota-monto { font-size: 14px; font-weight: 600; font-family: var(--mono); }
+.tc-compra-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.tc-cuota-bar { margin-top: 6px; height: 3px; background: var(--surface2); border-radius: 20px; overflow: hidden; }
+.tc-cuota-fill { height: 100%; border-radius: 20px; transition: width 0.4s; }
+.tc-tab-row { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.tc-tab { padding: 7px 14px; font-size: 12px; font-family: var(--font); border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text2); cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+.tc-tab.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.tc-tab:hover:not(.active) { background: var(--surface2); }
+.tc-color-opt { width: 32px; height: 32px; border-radius: 8px; cursor: pointer; transition: transform 0.15s, border 0.15s; }
+
 /* ── Bottom nav móvil ── */
 .bottom-nav { display: none; }
 
@@ -436,6 +460,86 @@ html { overflow-x: hidden; }
   </div>
 </div>
 
+<!-- ── Modal Nueva Tarjeta ── -->
+<div class="modal-overlay hidden" id="modal-tarjeta">
+  <div class="modal">
+    <div class="modal-title" id="modal-tarjeta-title">Nueva tarjeta de crédito</div>
+    <input type="hidden" id="tc-edit-id">
+    <div class="form-row form-row-2">
+      <div class="field"><label>Nombre de la tarjeta</label><input type="text" id="tc-nombre" placeholder="BCI Mastercard, Falabella VISA..."></div>
+      <div class="field"><label>Banco / Emisor</label><input type="text" id="tc-banco" placeholder="BCI, Banco Chile, Ripley..."></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Límite de crédito (CLP)</label><input type="number" id="tc-limite" placeholder="3000000" min="0"></div>
+      <div class="field"><label>¿De quién?</label>
+        <select id="tc-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+      </div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Día de corte (cierre del ciclo)</label><input type="number" id="tc-corte" placeholder="25" min="1" max="31"></div>
+      <div class="field"><label>Día de pago (vencimiento)</label><input type="number" id="tc-pago" placeholder="10" min="1" max="31"></div>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>Color de la tarjeta</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <div class="tc-color-opt" data-idx="0" onclick="selectTCColor(0)" style="background:linear-gradient(135deg,#1A3A6B,#0C1426);border:3px solid var(--navy)"></div>
+        <div class="tc-color-opt" data-idx="1" onclick="selectTCColor(1)" style="background:linear-gradient(135deg,#1D9E75,#0F5E47);border:3px solid transparent"></div>
+        <div class="tc-color-opt" data-idx="2" onclick="selectTCColor(2)" style="background:linear-gradient(135deg,#C44B2B,#7B1F0A);border:3px solid transparent"></div>
+        <div class="tc-color-opt" data-idx="3" onclick="selectTCColor(3)" style="background:linear-gradient(135deg,#7F77DD,#3D35A0);border:3px solid transparent"></div>
+        <div class="tc-color-opt" data-idx="4" onclick="selectTCColor(4)" style="background:linear-gradient(135deg,#BA7517,#7A4C0E);border:3px solid transparent"></div>
+        <div class="tc-color-opt" data-idx="5" onclick="selectTCColor(5)" style="background:linear-gradient(135deg,#185FA5,#0A3060);border:3px solid transparent"></div>
+      </div>
+      <input type="hidden" id="tc-color-idx" value="0">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-tarjeta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTarjeta()">Guardar tarjeta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Nueva Compra TC ── -->
+<div class="modal-overlay hidden" id="modal-compra-tc">
+  <div class="modal">
+    <div class="modal-title" id="modal-compra-tc-title">Registrar compra en cuotas</div>
+    <input type="hidden" id="tc-compra-edit-id">
+    <div class="form-row form-row-2">
+      <div class="field"><label>Tarjeta</label>
+        <select id="tc-compra-tarjeta"></select>
+      </div>
+      <div class="field"><label>Fecha de compra</label><input type="date" id="tc-compra-fecha"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Tienda / Comercio</label><input type="text" id="tc-compra-tienda" placeholder="Ripley, Falabella, Amazon..."></div>
+      <div class="field"><label>Descripción</label><input type="text" id="tc-compra-desc" placeholder="TV, ropa, viaje..."></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Monto total (CLP)</label><input type="number" id="tc-compra-monto" placeholder="0" min="0" oninput="autoCalcCuotaMonto()"></div>
+      <div class="field"><label>N° de cuotas</label><input type="number" id="tc-compra-cuotas" placeholder="12" min="1" max="60" oninput="autoCalcCuotaMonto()"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Monto por cuota (CLP)</label><input type="number" id="tc-compra-cuota-monto" placeholder="Se calcula automático" min="0"></div>
+      <div class="field"><label>Tasa de interés anual (% — 0 si es sin interés)</label><input type="number" id="tc-compra-tasa" placeholder="0" min="0" step="0.1"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Categoría</label>
+        <select id="tc-compra-cat">
+          <option>Hogar / Tecnología</option><option>Ropa / Moda</option><option>Viajes</option>
+          <option>Salud / Farmacia</option><option>Educación</option><option>Electrodomésticos</option>
+          <option>Entretenimiento</option><option>Servicios</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>¿Quién compró?</label>
+        <select id="tc-compra-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-compra-tc')">Cancelar</button>
+      <button class="btn btn-danger" onclick="saveCompraTc()">Registrar compra</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
@@ -460,6 +564,7 @@ html { overflow-x: hidden; }
     <div class="nav-item" onclick="showPage('meta',this)"><span class="icon">⌂</span> Meta vivienda</div>
     <div class="nav-section">Patrimonio</div>
     <div class="nav-item" onclick="showPage('patrimonio',this)"><span class="icon">◆</span> Patrimonio neto</div>
+    <div class="nav-item" onclick="showPage('tarjetas',this)"><span class="icon">▣</span> Tarjetas TC</div>
     <div class="nav-section">Configuración</div>
     <div class="nav-item" onclick="showPage('config',this)"><span class="icon">⚙</span> Configurar</div>
     <div class="nav-item" onclick="logout()" style="margin-top:auto;color:rgba(255,255,255,0.4)"><span class="icon">↩</span> Cerrar sesión</div>
@@ -719,6 +824,53 @@ html { overflow-x: hidden; }
       </div>
     </div>
 
+    <!-- ══════════ TARJETAS ══════════ -->
+    <div class="page" id="page-tarjetas">
+      <div class="page-header">
+        <div class="page-title">Tarjetas de crédito</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="openModalTarjeta()">+ Tarjeta</button>
+          <button class="btn btn-sm" style="background:var(--danger);color:#fff;border:none" onclick="openModalCompraTc()">+ Compra</button>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics">
+        <div class="metric" style="border-top-color:var(--blue)"><div class="m-label">Cupo total</div><div class="m-value m-blue" id="tc-m-limite">—</div><div class="m-sub">Suma de límites</div></div>
+        <div class="metric" style="border-top-color:var(--danger)"><div class="m-label">Deuda pendiente</div><div class="m-value m-neg" id="tc-m-usado">—</div><div class="m-sub">Cuotas por pagar</div></div>
+        <div class="metric" style="border-top-color:#1A7A4A"><div class="m-label">Cupo disponible</div><div class="m-value m-pos" id="tc-m-disponible">—</div><div class="m-sub">Límite − deuda</div></div>
+        <div class="metric" style="border-top-color:var(--danger)"><div class="m-label">Cargo este mes</div><div class="m-value m-neg" id="tc-m-cargo">—</div><div class="m-sub">Cuotas del mes actual</div></div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Columna izquierda: card visual + compras -->
+        <div>
+          <div class="card">
+            <div class="card-title">Mis tarjetas</div>
+            <div class="tc-tab-row" id="tc-tabs"></div>
+            <div id="tc-card-visual"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--text3);font-weight:700">Compras en cuotas vigentes</div>
+              <button class="btn btn-sm" style="background:var(--danger);color:#fff;border:none;font-size:11px;padding:4px 10px" onclick="openModalCompraTc()">+ Agregar</button>
+            </div>
+            <div id="tc-compras-list"></div>
+          </div>
+        </div>
+
+        <!-- Columna derecha: resumen + fechas -->
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-title">Resumen por tarjeta</div>
+            <div id="tc-resumen-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Próximas fechas importantes</div>
+            <div id="tc-fechas-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════ CONFIG ══════════ -->
     <div class="page" id="page-config">
       <div class="page-header"><div class="page-title">Configuración</div></div>
@@ -766,6 +918,9 @@ html { overflow-x: hidden; }
     <button class="bn-item" data-page="patrimonio" onclick="showPageMobile('patrimonio',this)">
       <span class="bn-icon">◆</span>Patrimonio
     </button>
+    <button class="bn-item" data-page="tarjetas" onclick="showPageMobile('tarjetas',this)">
+      <span class="bn-icon">▣</span>TC
+    </button>
     <button class="bn-item" data-page="analisis" onclick="showPageMobile('analisis',this)">
       <span class="bn-icon">◎</span>IA
     </button>
@@ -791,6 +946,23 @@ let patrimonioData = JSON.parse(localStorage.getItem('poritos_patrimonio') || JS
   activos: [],
   pasivos: []
 }));
+let tarjetasData = JSON.parse(localStorage.getItem('poritos_tarjetas') || JSON.stringify({ tarjetas: [], compras: [] }));
+let tcTabActual = 'todas';
+let tcColorSel = 0;
+
+const TC_GRADIENTS = [
+  'linear-gradient(135deg, #1A3A6B 0%, #0C1426 100%)',
+  'linear-gradient(135deg, #1D9E75 0%, #0F5E47 100%)',
+  'linear-gradient(135deg, #C44B2B 0%, #7B1F0A 100%)',
+  'linear-gradient(135deg, #7F77DD 0%, #3D35A0 100%)',
+  'linear-gradient(135deg, #BA7517 0%, #7A4C0E 100%)',
+  'linear-gradient(135deg, #185FA5 0%, #0A3060 100%)',
+];
+const TC_CAT_ICONS = {
+  'Hogar / Tecnología':'💻','Ropa / Moda':'👕','Viajes':'✈️',
+  'Salud / Farmacia':'💊','Educación':'📚','Electrodomésticos':'🏠',
+  'Entretenimiento':'🎬','Servicios':'⚡','Otro':'🛍️'
+};
 
 const MONTHS = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const CAT_COLORS = {
@@ -904,13 +1076,14 @@ async function apiPost(body) {
 // DATA LOADING
 // ══════════════════════════════════════════════
 async function loadAll() {
-  await Promise.all([loadTx(), loadMeta(), loadPatrimonio()]);
+  await Promise.all([loadTx(), loadMeta(), loadPatrimonio(), loadTarjetas()]);
   renderDashboard();
   renderHistorial();
   renderTodayList();
   renderMetaPage();
   renderAutoTips();
   renderPatrimonio();
+  renderTarjetas();
 }
 
 function parseMonto(val) {
@@ -976,6 +1149,7 @@ function showPage(id, el) {
   if(id==='analisis') renderAutoTips();
   if(id==='meta') renderMetaPage();
   if(id==='patrimonio') renderPatrimonio();
+  if(id==='tarjetas') renderTarjetas();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -1795,6 +1969,381 @@ Sé breve pero muy preciso. Usa viñetas cuando corresponda. Máximo 280 palabra
     out.textContent = 'Error al conectar con el asistente.';
     out.className = 'ai-response';
   }
+}
+
+// ══════════════════════════════════════════════
+// TARJETAS DE CRÉDITO
+// ══════════════════════════════════════════════
+
+async function loadTarjetas() {
+  try {
+    if (SCRIPT_URL) {
+      const d = await apiGet({ action: 'getTarjetas' });
+      if (d && (d.tarjetas || d.compras)) {
+        tarjetasData = d;
+        localStorage.setItem('poritos_tarjetas', JSON.stringify(d));
+        return;
+      }
+    }
+  } catch(e) {}
+  tarjetasData = JSON.parse(localStorage.getItem('poritos_tarjetas') || JSON.stringify({ tarjetas: [], compras: [] }));
+}
+
+function saveTarjetasLocal() {
+  localStorage.setItem('poritos_tarjetas', JSON.stringify(tarjetasData));
+  if (SCRIPT_URL) {
+    apiPost({ action: 'saveTarjetas', data: tarjetasData })
+      .then(r => { if (r && r.ok) toast('Tarjetas sincronizadas ✓', '#1D9E75'); });
+  }
+}
+
+// Cuántas cuotas han pasado desde la fecha de compra (mínimo 0, máximo cuotas_totales)
+function calcCuotaActual(c) {
+  const today = new Date();
+  const d = new Date(c.fecha_compra + 'T00:00:00');
+  const months = (today.getFullYear() - d.getFullYear()) * 12 + (today.getMonth() - d.getMonth());
+  return Math.min(Math.max(0, months), c.cuotas_totales);
+}
+function calcCuotasRestantes(c) { return Math.max(0, c.cuotas_totales - calcCuotaActual(c)); }
+function calcMontoRestante(c)   { return calcCuotasRestantes(c) * c.monto_por_cuota; }
+
+function calcTotalUsado(tarjeta_id) {
+  return (tarjetasData.compras || [])
+    .filter(c => c.tarjeta_id === tarjeta_id)
+    .reduce((s, c) => s + calcMontoRestante(c), 0);
+}
+function calcCargoPendiente(tarjeta_id) {
+  return (tarjetasData.compras || [])
+    .filter(c => c.tarjeta_id === tarjeta_id && calcCuotasRestantes(c) > 0)
+    .reduce((s, c) => s + c.monto_por_cuota, 0);
+}
+
+function renderTarjetas() {
+  const tarjetas = tarjetasData.tarjetas || [];
+  const compras  = tarjetasData.compras  || [];
+
+  // ── Métricas globales ──
+  const totalLimite     = tarjetas.reduce((s, t) => s + (t.limite || 0), 0);
+  const totalUsado      = tarjetas.reduce((s, t) => s + calcTotalUsado(t.id), 0);
+  const totalDisponible = Math.max(0, totalLimite - totalUsado);
+  const totalCargo      = tarjetas.reduce((s, t) => s + calcCargoPendiente(t.id), 0);
+
+  document.getElementById('tc-m-limite').textContent     = totalLimite ? '$' + fmt(totalLimite) : '—';
+  document.getElementById('tc-m-usado').textContent      = '$' + fmt(totalUsado);
+  document.getElementById('tc-m-disponible').textContent = '$' + fmt(totalDisponible);
+  document.getElementById('tc-m-cargo').textContent      = '$' + fmt(totalCargo);
+
+  // ── Tabs ──
+  const tabsEl = document.getElementById('tc-tabs');
+  if (!tarjetas.length) {
+    tabsEl.innerHTML = '';
+    document.getElementById('tc-card-visual').innerHTML  = '<div class="empty"><div class="e-icon">💳</div>Agrega tu primera tarjeta de crédito</div>';
+    document.getElementById('tc-compras-list').innerHTML = '<div class="empty"><div class="e-icon">🛍️</div>Sin compras registradas</div>';
+    document.getElementById('tc-resumen-list').innerHTML = '<div class="empty"><div class="e-icon">📋</div>Sin tarjetas</div>';
+    document.getElementById('tc-fechas-list').innerHTML  = '<div class="empty"><div class="e-icon">📅</div>Sin fechas próximas</div>';
+    return;
+  }
+  tabsEl.innerHTML =
+    `<button class="tc-tab ${tcTabActual === 'todas' ? 'active' : ''}" onclick="setTCTab('todas')">Todas</button>` +
+    tarjetas.map(t =>
+      `<button class="tc-tab ${tcTabActual === t.id ? 'active' : ''}" onclick="setTCTab('${t.id}')">${t.nombre}</button>`
+    ).join('');
+
+  // ── Card visual (primera tarjeta si tab = todas) ──
+  const tc = tcTabActual === 'todas' ? tarjetas[0] : tarjetas.find(t => t.id === tcTabActual);
+  if (tc) {
+    const usado     = calcTotalUsado(tc.id);
+    const limite    = tc.limite || 0;
+    const disponible= Math.max(0, limite - usado);
+    const usoPct    = limite > 0 ? Math.min(100, Math.round(usado / limite * 100)) : 0;
+    const cargo     = calcCargoPendiente(tc.id);
+    const grad      = TC_GRADIENTS[tc.color_idx || 0];
+    const warnColor = usoPct >= 80 ? '#FF6B6B' : usoPct >= 50 ? '#FBBF24' : 'rgba(255,255,255,0.75)';
+
+    document.getElementById('tc-card-visual').innerHTML = `
+      <div class="tc-card-visual" style="background:${grad}">
+        <div class="tc-card-logo">${(tc.banco || 'TC').substring(0, 3).toUpperCase()}</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="tc-card-chip"></div>
+          <div style="font-size:16px;font-weight:700;letter-spacing:0.02em">${tc.nombre}</div>
+          <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.06em">${tc.banco || ''}${tc.quien ? ' · ' + tc.quien : ''}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:12px">
+          <div>
+            <div style="font-size:9px;opacity:0.55;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Cupo disponible</div>
+            <div style="font-size:24px;font-weight:700;font-family:var(--mono);letter-spacing:-0.5px">$${fmt(disponible)}</div>
+            <div style="font-size:11px;opacity:0.6;margin-top:2px">Usado: $${fmt(usado)} de $${fmt(limite)}</div>
+            <div class="tc-cupo-bar"><div class="tc-cupo-fill" style="width:${usoPct}%;background:${warnColor}"></div></div>
+          </div>
+          <div style="text-align:right;font-size:11px;opacity:0.65;line-height:1.8">
+            <div>Corte: <strong>día ${tc.fecha_corte || '—'}</strong></div>
+            <div>Pago: <strong>día ${tc.fecha_pago || '—'}</strong></div>
+            <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:1">$${fmt(cargo)}/mes</div>
+          </div>
+        </div>
+        <button onclick="openModalTarjeta('${tc.id}')" title="Editar" style="position:absolute;bottom:10px;left:14px;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.7);font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer">✎ Editar</button>
+        <button onclick="deleteTCCard('${tc.id}')" title="Eliminar tarjeta" style="position:absolute;bottom:10px;left:80px;background:rgba(255,100,100,0.18);border:none;color:rgba(255,180,180,0.9);font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer">✕</button>
+      </div>`;
+  }
+
+  // ── Lista de compras ──
+  const filtro = tcTabActual === 'todas' ? compras : compras.filter(c => c.tarjeta_id === tcTabActual);
+  const vigentes    = filtro.filter(c => calcCuotasRestantes(c) > 0);
+  const finalizadas = filtro.filter(c => calcCuotasRestantes(c) === 0);
+
+  const renderCompra = (c, opaque) => {
+    const cuotaActual  = calcCuotaActual(c);
+    const restantes    = calcCuotasRestantes(c);
+    const pct          = c.cuotas_totales > 0 ? Math.round(cuotaActual / c.cuotas_totales * 100) : 100;
+    const terminada    = restantes === 0;
+    const icon         = TC_CAT_ICONS[c.categoria] || '🛍️';
+    const tcCard       = tarjetas.find(t => t.id === c.tarjeta_id);
+    const cardName     = tcCard ? tcCard.nombre : '';
+    return `<div class="tc-compra-item" style="${opaque ? 'opacity:0.5' : ''}">
+      <div class="tc-compra-dot" style="background:${terminada ? 'var(--surface2)' : 'var(--danger-light)'}">${icon}</div>
+      <div class="tc-compra-info">
+        <div class="tc-compra-desc">${c.tienda || c.descripcion}</div>
+        <div class="tc-compra-meta">${c.descripcion && c.descripcion !== c.tienda ? c.descripcion + ' · ' : ''}${c.categoria}${tcTabActual === 'todas' && cardName ? ' · ' + cardName : ''} · ${c.quien || ''}</div>
+        <div class="tc-cuota-bar"><div class="tc-cuota-fill" style="width:${pct}%;background:${terminada ? 'var(--border)' : 'var(--danger)'}"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">Cuota ${cuotaActual} de ${c.cuotas_totales} · ${terminada ? '✓ Finalizada' : restantes + ' restante' + (restantes !== 1 ? 's' : '')}${c.tasa_interes ? ' · Tasa ' + c.tasa_interes + '%' : ''}</div>
+      </div>
+      <div class="tc-compra-right">
+        <div class="tc-compra-cuota-monto" style="color:${terminada ? 'var(--text3)' : 'var(--danger)'}">$${fmt(c.monto_por_cuota)}/mes</div>
+        <div class="tc-compra-sub">Total: $${fmt(c.monto_total)}</div>
+        <div class="tc-compra-sub">Resta: $${fmt(calcMontoRestante(c))}</div>
+        <button onclick="deleteCompraTC('${c.id}')" style="margin-top:5px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px 4px;line-height:1" title="Eliminar">×</button>
+      </div>
+    </div>`;
+  };
+
+  let comprasHtml = '';
+  if (vigentes.length)    comprasHtml += vigentes.map(c => renderCompra(c, false)).join('');
+  if (finalizadas.length) comprasHtml += `<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:12px 0 6px">Finalizadas</div>` + finalizadas.map(c => renderCompra(c, true)).join('');
+  if (!comprasHtml)       comprasHtml = '<div class="empty"><div class="e-icon">💳</div>Sin compras registradas — agrega tu primera compra en cuotas</div>';
+  document.getElementById('tc-compras-list').innerHTML = comprasHtml;
+
+  // ── Resumen por tarjeta ──
+  document.getElementById('tc-resumen-list').innerHTML = tarjetas.map(t => {
+    const usado  = calcTotalUsado(t.id);
+    const cargo  = calcCargoPendiente(t.id);
+    const limite = t.limite || 0;
+    const pct    = limite > 0 ? Math.min(100, Math.round(usado / limite * 100)) : 0;
+    const barColor = pct >= 80 ? 'var(--danger)' : pct >= 50 ? 'var(--gold-dark)' : '#1A7A4A';
+    const grad   = TC_GRADIENTS[t.color_idx || 0];
+    const nCompras = (tarjetasData.compras || []).filter(c => c.tarjeta_id === t.id && calcCuotasRestantes(c) > 0).length;
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:10px;height:10px;border-radius:3px;background:${grad};flex-shrink:0"></div>
+          <div style="font-size:13px;font-weight:600">${t.nombre}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--danger)">$${fmt(cargo)}/mes</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
+        <span>Deuda: $${fmt(usado)}</span>
+        <span>Disponible: $${fmt(Math.max(0, limite - usado))}</span>
+      </div>
+      <div style="height:4px;background:var(--surface2);border-radius:20px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${barColor};border-radius:20px;transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">${pct}% utilizado · ${nCompras} compra${nCompras !== 1 ? 's' : ''} vigente${nCompras !== 1 ? 's' : ''}</div>
+    </div>`;
+  }).join('') || '<div class="empty">Sin tarjetas</div>';
+
+  // ── Próximas fechas ──
+  const hoy = new Date();
+  const diaHoy = hoy.getDate();
+  const filas = tarjetas.flatMap(t => {
+    const mkDias = dia => {
+      const d = parseInt(dia) || 0;
+      if (!d) return 999;
+      return d >= diaHoy ? d - diaHoy : (31 - diaHoy + d);
+    };
+    return [
+      { tipo: 'corte', tarjeta: t.nombre, dia: t.fecha_corte, dias: mkDias(t.fecha_corte) },
+      { tipo: 'pago',  tarjeta: t.nombre, dia: t.fecha_pago,  dias: mkDias(t.fecha_pago)  }
+    ];
+  }).filter(f => f.dia).sort((a, b) => a.dias - b.dias);
+
+  document.getElementById('tc-fechas-list').innerHTML = filas.length ? filas.slice(0, 6).map(f => {
+    const urgente = f.dias <= 3;
+    const pronto  = f.dias <= 7;
+    const color   = urgente ? 'var(--danger)' : pronto ? 'var(--gold-dark)' : 'var(--text3)';
+    const icon    = f.tipo === 'corte' ? '📋' : '💰';
+    const label   = f.dias === 0 ? '¡Hoy!' : f.dias === 1 ? 'Mañana' : `En ${f.dias} días`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:20px">${icon}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${f.tipo === 'corte' ? 'Cierre ciclo' : 'Vencimiento pago'} — ${f.tarjeta}</div>
+        <div style="font-size:11px;color:var(--text3)">Día ${f.dia} del mes</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:${color}">${label}</div>
+    </div>`;
+  }).join('') : '<div class="empty"><div class="e-icon">📅</div>Agrega tarjetas para ver fechas</div>';
+}
+
+function setTCTab(id) {
+  tcTabActual = id;
+  renderTarjetas();
+}
+
+// ── Modal Tarjeta ──
+function openModalTarjeta(editId) {
+  ['tc-nombre','tc-banco','tc-limite','tc-corte','tc-pago'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  selectTCColor(0);
+  document.getElementById('tc-edit-id').value = '';
+  document.getElementById('modal-tarjeta-title').textContent = 'Nueva tarjeta de crédito';
+
+  if (editId) {
+    const t = (tarjetasData.tarjetas || []).find(x => x.id === editId);
+    if (t) {
+      document.getElementById('tc-edit-id').value  = t.id;
+      document.getElementById('modal-tarjeta-title').textContent = 'Editar tarjeta';
+      document.getElementById('tc-nombre').value   = t.nombre || '';
+      document.getElementById('tc-banco').value    = t.banco  || '';
+      document.getElementById('tc-limite').value   = t.limite || '';
+      document.getElementById('tc-quien').value    = t.quien  || 'Pori';
+      document.getElementById('tc-corte').value    = t.fecha_corte || '';
+      document.getElementById('tc-pago').value     = t.fecha_pago  || '';
+      selectTCColor(t.color_idx || 0);
+    }
+  }
+  document.getElementById('modal-tarjeta').classList.remove('hidden');
+}
+
+function selectTCColor(idx) {
+  tcColorSel = idx;
+  document.getElementById('tc-color-idx').value = idx;
+  document.querySelectorAll('.tc-color-opt').forEach((el, i) => {
+    el.style.border     = i === idx ? '3px solid var(--navy)' : '3px solid transparent';
+    el.style.transform  = i === idx ? 'scale(1.2)' : 'scale(1)';
+    el.style.boxShadow  = i === idx ? '0 0 0 2px rgba(12,20,38,0.3)' : 'none';
+  });
+}
+
+function saveTarjeta() {
+  const nombre = document.getElementById('tc-nombre').value.trim();
+  if (!nombre) { toast('Ingresa el nombre de la tarjeta', '#C44B2B'); return; }
+  const editId = document.getElementById('tc-edit-id').value;
+  const tarjeta = {
+    id: editId || 'TC' + Date.now(),
+    nombre,
+    banco:       document.getElementById('tc-banco').value.trim(),
+    limite:      parseInt(document.getElementById('tc-limite').value)  || 0,
+    fecha_corte: parseInt(document.getElementById('tc-corte').value)   || 25,
+    fecha_pago:  parseInt(document.getElementById('tc-pago').value)    || 10,
+    color_idx:   parseInt(document.getElementById('tc-color-idx').value) || 0,
+    quien:       document.getElementById('tc-quien').value,
+    updated:     new Date().toISOString()
+  };
+  if (!tarjetasData.tarjetas) tarjetasData.tarjetas = [];
+  if (editId) {
+    const idx = tarjetasData.tarjetas.findIndex(t => t.id === editId);
+    if (idx >= 0) tarjetasData.tarjetas[idx] = tarjeta; else tarjetasData.tarjetas.push(tarjeta);
+  } else {
+    tarjetasData.tarjetas.push(tarjeta);
+    tcTabActual = tarjeta.id;
+  }
+  saveTarjetasLocal();
+  closeModal('modal-tarjeta');
+  renderTarjetas();
+  toast('Tarjeta guardada', '#1D9E75');
+}
+
+function deleteTCCard(id) {
+  if (!confirm('¿Eliminar esta tarjeta y todas sus compras registradas?')) return;
+  tarjetasData.tarjetas = (tarjetasData.tarjetas || []).filter(t => t.id !== id);
+  tarjetasData.compras  = (tarjetasData.compras  || []).filter(c => c.tarjeta_id !== id);
+  tcTabActual = 'todas';
+  saveTarjetasLocal(); renderTarjetas(); toast('Tarjeta eliminada', '#888');
+}
+
+// ── Modal Compra TC ──
+function openModalCompraTc(editId) {
+  const tarjetas = tarjetasData.tarjetas || [];
+  if (!tarjetas.length) { toast('Agrega una tarjeta primero', '#C44B2B'); return; }
+
+  document.getElementById('tc-compra-tarjeta').innerHTML =
+    tarjetas.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+  if (tcTabActual !== 'todas') document.getElementById('tc-compra-tarjeta').value = tcTabActual;
+
+  ['tc-compra-tienda','tc-compra-desc','tc-compra-monto','tc-compra-cuotas','tc-compra-cuota-monto','tc-compra-tasa'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('tc-compra-edit-id').value = '';
+  document.getElementById('tc-compra-fecha').value   = new Date().toISOString().split('T')[0];
+  document.getElementById('modal-compra-tc-title').textContent = 'Registrar compra en cuotas';
+
+  if (editId) {
+    const c = (tarjetasData.compras || []).find(x => x.id === editId);
+    if (c) {
+      document.getElementById('tc-compra-edit-id').value      = c.id;
+      document.getElementById('modal-compra-tc-title').textContent = 'Editar compra';
+      document.getElementById('tc-compra-tarjeta').value      = c.tarjeta_id;
+      document.getElementById('tc-compra-fecha').value        = c.fecha_compra || '';
+      document.getElementById('tc-compra-tienda').value       = c.tienda || '';
+      document.getElementById('tc-compra-desc').value         = c.descripcion || '';
+      document.getElementById('tc-compra-monto').value        = c.monto_total || '';
+      document.getElementById('tc-compra-cuotas').value       = c.cuotas_totales || '';
+      document.getElementById('tc-compra-cuota-monto').value  = c.monto_por_cuota || '';
+      document.getElementById('tc-compra-tasa').value         = c.tasa_interes || '';
+      document.getElementById('tc-compra-cat').value          = c.categoria || 'Otro';
+      document.getElementById('tc-compra-quien').value        = c.quien || 'Pori';
+    }
+  }
+  document.getElementById('modal-compra-tc').classList.remove('hidden');
+}
+
+function autoCalcCuotaMonto() {
+  const monto  = parseFloat(document.getElementById('tc-compra-monto').value) || 0;
+  const cuotas = parseInt(document.getElementById('tc-compra-cuotas').value)  || 0;
+  if (monto > 0 && cuotas > 0)
+    document.getElementById('tc-compra-cuota-monto').value = Math.round(monto / cuotas);
+}
+
+function saveCompraTc() {
+  const tienda = document.getElementById('tc-compra-tienda').value.trim();
+  const desc   = document.getElementById('tc-compra-desc').value.trim();
+  const monto  = parseFloat(document.getElementById('tc-compra-monto').value) || 0;
+  const cuotas = parseInt(document.getElementById('tc-compra-cuotas').value)  || 1;
+  const cuotaMonto = parseFloat(document.getElementById('tc-compra-cuota-monto').value) || Math.round(monto / cuotas);
+  if (!tienda || !monto) { toast('Completa tienda y monto total', '#C44B2B'); return; }
+
+  const editId = document.getElementById('tc-compra-edit-id').value;
+  const compra = {
+    id:              editId || 'CTC' + Date.now(),
+    tarjeta_id:      document.getElementById('tc-compra-tarjeta').value,
+    descripcion:     desc || tienda,
+    tienda,
+    monto_total:     monto,
+    cuotas_totales:  cuotas,
+    monto_por_cuota: cuotaMonto,
+    fecha_compra:    document.getElementById('tc-compra-fecha').value,
+    categoria:       document.getElementById('tc-compra-cat').value,
+    tasa_interes:    parseFloat(document.getElementById('tc-compra-tasa').value) || 0,
+    quien:           document.getElementById('tc-compra-quien').value,
+    updated:         new Date().toISOString()
+  };
+
+  if (!tarjetasData.compras) tarjetasData.compras = [];
+  if (editId) {
+    const idx = tarjetasData.compras.findIndex(c => c.id === editId);
+    if (idx >= 0) tarjetasData.compras[idx] = compra; else tarjetasData.compras.push(compra);
+  } else {
+    tarjetasData.compras.push(compra);
+  }
+  saveTarjetasLocal();
+  closeModal('modal-compra-tc');
+  renderTarjetas();
+  toast('Compra registrada', '#1D9E75');
+}
+
+function deleteCompraTC(id) {
+  if (!confirm('¿Eliminar esta compra?')) return;
+  tarjetasData.compras = (tarjetasData.compras || []).filter(c => c.id !== id);
+  saveTarjetasLocal(); renderTarjetas(); toast('Eliminado', '#888');
 }
 
 // ══════════════════════════════════════════════
