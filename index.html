@@ -2356,7 +2356,10 @@ function renderTarjetas() {
         <div class="tc-compra-cuota-monto" style="color:${terminada ? 'var(--text3)' : 'var(--danger)'}">$${fmt(c.monto_por_cuota)}/mes</div>
         <div class="tc-compra-sub">Total: $${fmt(c.monto_total)}</div>
         <div class="tc-compra-sub">Resta: $${fmt(calcMontoRestante(c))}</div>
-        <button onclick="deleteCompraTC('${c.id}')" style="margin-top:5px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px 4px;line-height:1" title="Eliminar">×</button>
+        <div style="display:flex;gap:4px;margin-top:5px">
+          <button onclick="openModalCompraTc('${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;line-height:1" title="Editar">✎</button>
+          <button onclick="deleteCompraTC('${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px 4px;line-height:1" title="Eliminar">×</button>
+        </div>
       </div>
     </div>`;
   };
