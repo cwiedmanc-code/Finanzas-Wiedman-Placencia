@@ -533,6 +533,10 @@ html { overflow-x: hidden; }
         <select id="tc-compra-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
       </div>
     </div>
+    <div class="field">
+      <label>Mes del primer pago <span style="font-weight:400;color:var(--text3)">(si la compra quedó en el siguiente ciclo de corte)</span></label>
+      <input type="month" id="tc-compra-primera-cuota" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text1);font-size:14px">
+    </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-compra-tc')">Cancelar</button>
       <button class="btn btn-danger" onclick="saveCompraTc()">Registrar compra</button>
@@ -2101,12 +2105,35 @@ function saveTarjetasLocal() {
   }
 }
 
-// Cuántas cuotas han pasado desde la fecha de compra (mínimo 0, máximo cuotas_totales)
+// Cuántas cuotas han pasado. Si hay fecha_primera_cuota usa esa como base; si no, usa fecha_compra.
 function calcCuotaActual(c) {
+  // El avance de cuotas depende de pagos reales registrados en pagosTC.
+  // Solo se cuenta 1 cuota por mes en que se haya registrado un pago para esa tarjeta.
+  const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
+  if (!firstMes) return 0;
+
+  const mesesPagados = new Set(
+    (tarjetasData.pagosTC || [])
+      .filter(p => p.tarjeta_id === c.tarjeta_id && p.fecha && p.fecha.substring(0, 7) >= firstMes)
+      .map(p => p.fecha.substring(0, 7))
+  );
+  return Math.min(mesesPagados.size, c.cuotas_totales);
+}
+
+// Indica si la compra tiene cuotas vencidas sin pago registrado
+function calcCuotasAtrasadas(c) {
+  const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
+  if (!firstMes) return 0;
   const today = new Date();
-  const d = new Date(c.fecha_compra + 'T00:00:00');
-  const months = (today.getFullYear() - d.getFullYear()) * 12 + (today.getMonth() - d.getMonth());
-  return Math.min(Math.max(0, months), c.cuotas_totales);
+  const todayMes = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  // Cuotas esperadas hasta hoy según tiempo
+  const [fy, fm] = firstMes.split('-').map(Number);
+  const esperadas = Math.min(
+    Math.max(0, (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1)) + 1),
+    c.cuotas_totales
+  );
+  const pagadas = calcCuotaActual(c);
+  return Math.max(0, esperadas - pagadas);
 }
 function calcCuotasRestantes(c) { return Math.max(0, c.cuotas_totales - calcCuotaActual(c)); }
 function calcMontoRestante(c)   { return calcCuotasRestantes(c) * c.monto_por_cuota; }
@@ -2198,18 +2225,26 @@ function renderTarjetas() {
   const renderCompra = (c, opaque) => {
     const cuotaActual  = calcCuotaActual(c);
     const restantes    = calcCuotasRestantes(c);
+    const atrasadas    = calcCuotasAtrasadas(c);
     const pct          = c.cuotas_totales > 0 ? Math.round(cuotaActual / c.cuotas_totales * 100) : 100;
     const terminada    = restantes === 0;
     const icon         = TC_CAT_ICONS[c.categoria] || '🛍️';
     const tcCard       = tarjetas.find(t => t.id === c.tarjeta_id);
     const cardName     = tcCard ? tcCard.nombre : '';
+    const barColor     = terminada ? 'var(--border)' : atrasadas > 0 ? '#E24B4A' : 'var(--accent)';
+    const estadoTxt    = terminada
+      ? '✓ Finalizada'
+      : atrasadas > 0
+        ? `⚠ ${atrasadas} cuota${atrasadas > 1 ? 's' : ''} sin pago · ${restantes} restante${restantes !== 1 ? 's' : ''}`
+        : `Cuota ${cuotaActual} de ${c.cuotas_totales} · ${restantes} restante${restantes !== 1 ? 's' : ''}`;
+    const estadoColor  = atrasadas > 0 ? '#E24B4A' : 'var(--text3)';
     return `<div class="tc-compra-item" style="${opaque ? 'opacity:0.5' : ''}">
-      <div class="tc-compra-dot" style="background:${terminada ? 'var(--surface2)' : 'var(--danger-light)'}">${icon}</div>
+      <div class="tc-compra-dot" style="background:${terminada ? 'var(--surface2)' : atrasadas > 0 ? 'rgba(226,75,74,0.15)' : 'var(--danger-light)'}">${icon}</div>
       <div class="tc-compra-info">
         <div class="tc-compra-desc">${c.tienda || c.descripcion}</div>
         <div class="tc-compra-meta">${c.descripcion && c.descripcion !== c.tienda ? c.descripcion + ' · ' : ''}${c.categoria}${tcTabActual === 'todas' && cardName ? ' · ' + cardName : ''} · ${c.quien || ''}</div>
-        <div class="tc-cuota-bar"><div class="tc-cuota-fill" style="width:${pct}%;background:${terminada ? 'var(--border)' : 'var(--danger)'}"></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px">Cuota ${cuotaActual} de ${c.cuotas_totales} · ${terminada ? '✓ Finalizada' : restantes + ' restante' + (restantes !== 1 ? 's' : '')}${c.tasa_interes ? ' · Tasa ' + c.tasa_interes + '%' : ''}</div>
+        <div class="tc-cuota-bar"><div class="tc-cuota-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        <div style="font-size:10px;color:${estadoColor};margin-top:3px">${estadoTxt}${c.tasa_interes ? ' · Tasa ' + c.tasa_interes + '%' : ''}</div>
       </div>
       <div class="tc-compra-right">
         <div class="tc-compra-cuota-monto" style="color:${terminada ? 'var(--text3)' : 'var(--danger)'}">$${fmt(c.monto_por_cuota)}/mes</div>
@@ -2396,7 +2431,7 @@ function openModalCompraTc(editId) {
     tarjetas.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
   if (tcTabActual !== 'todas') document.getElementById('tc-compra-tarjeta').value = tcTabActual;
 
-  ['tc-compra-tienda','tc-compra-desc','tc-compra-monto','tc-compra-cuotas','tc-compra-cuota-monto','tc-compra-tasa'].forEach(id => {
+  ['tc-compra-tienda','tc-compra-desc','tc-compra-monto','tc-compra-cuotas','tc-compra-cuota-monto','tc-compra-tasa','tc-compra-primera-cuota'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('tc-compra-edit-id').value = '';
@@ -2418,6 +2453,7 @@ function openModalCompraTc(editId) {
       document.getElementById('tc-compra-tasa').value         = c.tasa_interes || '';
       document.getElementById('tc-compra-cat').value          = c.categoria || 'Otro';
       document.getElementById('tc-compra-quien').value        = c.quien || 'Pori';
+      document.getElementById('tc-compra-primera-cuota').value = c.fecha_primera_cuota || '';
     }
   }
   document.getElementById('modal-compra-tc').classList.remove('hidden');
@@ -2447,8 +2483,9 @@ function saveCompraTc() {
     monto_total:     monto,
     cuotas_totales:  cuotas,
     monto_por_cuota: cuotaMonto,
-    fecha_compra:    document.getElementById('tc-compra-fecha').value,
-    categoria:       document.getElementById('tc-compra-cat').value,
+    fecha_compra:         document.getElementById('tc-compra-fecha').value,
+    fecha_primera_cuota:  document.getElementById('tc-compra-primera-cuota').value || null,
+    categoria:            document.getElementById('tc-compra-cat').value,
     tasa_interes:    parseFloat(document.getElementById('tc-compra-tasa').value) || 0,
     quien:           document.getElementById('tc-compra-quien').value,
     updated:         new Date().toISOString()
