@@ -594,10 +594,12 @@ html { overflow-x: hidden; }
         <div class="metric"><div class="m-label">Ingresos</div><div class="m-value m-pos" id="m-ing">—</div></div>
         <div class="metric"><div class="m-label">Gastos</div><div class="m-value m-neg" id="m-gas">—</div></div>
         <div class="metric"><div class="m-label">Ahorro</div><div class="m-value m-blue" id="m-ahorro">—</div><div class="m-sub" id="m-tasa-sub">Meta: ≥ 20%</div></div>
-        <div class="metric"><div class="m-label">Flujo libre</div><div class="m-value" id="m-libre">—</div></div>
+        <div class="metric"><div class="m-label">Flujo libre</div><div class="m-value" id="m-libre">—</div><div class="m-sub" id="m-libre-sub"></div></div>
       </div>
       <!-- Patrimonio neto mini -->
       <div id="dash-patrimonio-banner"></div>
+      <!-- Tarjetas TC mini -->
+      <div id="dash-tc-banner"></div>
       <!-- Gráfico comparativo -->
       <div class="card" style="margin-bottom:16px">
         <div class="card-title">Comparativo 2026</div>
@@ -625,6 +627,7 @@ html { overflow-x: hidden; }
             <button class="active-gasto" onclick="setTipo('gasto',this)">Gasto</button>
             <button onclick="setTipo('ingreso',this)">Ingreso</button>
             <button onclick="setTipo('ahorro',this)">Ahorro</button>
+            <button onclick="setTipo('pago-tc',this)">Pago TC</button>
           </div>
           <div id="sec-gasto">
             <div class="card-title">Categoría rápida</div>
@@ -639,7 +642,7 @@ html { overflow-x: hidden; }
                 <select id="g-cat">
                   <option>Vivienda</option><option>Alimentación</option><option>Transporte</option>
                   <option>Salud</option><option>Educación</option><option>Servicios básicos</option>
-                  <option>Entretenimiento</option><option>Deudas</option><option>Familia</option><option>Otros</option>
+                  <option>Entretenimiento</option><option>Deudas</option><option>Pago Tarjeta</option><option>Familia</option><option>Otros</option>
                 </select>
               </div>
               <div class="field"><label>¿Quién?</label>
@@ -685,6 +688,25 @@ html { overflow-x: hidden; }
               </div>
             </div>
             <button class="btn btn-primary btn-full" style="background:#185FA5;color:#fff" onclick="submitAhorro()">Registrar ahorro</button>
+          </div>
+          <div id="sec-pago-tc" style="display:none">
+            <div style="background:rgba(196,75,43,0.08);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5">
+              Registra el pago como <strong>gasto</strong> y actualiza el historial de la tarjeta seleccionada.
+            </div>
+            <div class="form-row form-row-3">
+              <div class="field"><label>Tarjeta</label>
+                <select id="ptc-tarjeta"></select>
+              </div>
+              <div class="field"><label>Monto pagado (CLP)</label><input type="number" id="ptc-monto" placeholder="0" min="0"></div>
+              <div class="field"><label>Fecha</label><input type="date" id="ptc-fecha"></div>
+            </div>
+            <div class="form-row form-row-2">
+              <div class="field"><label>¿Quién?</label>
+                <select id="ptc-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+              </div>
+              <div class="field"><label>Descripción (opcional)</label><input type="text" id="ptc-desc" placeholder="Pago cuota mensual..."></div>
+            </div>
+            <button class="btn btn-full" style="background:#C44B2B;color:#fff;border:none" onclick="submitPagoTC()">Registrar pago tarjeta</button>
           </div>
         </div>
         <div class="card">
@@ -867,6 +889,13 @@ html { overflow-x: hidden; }
             <div class="card-title">Próximas fechas importantes</div>
             <div id="tc-fechas-list"></div>
           </div>
+          <div class="card" style="margin-top:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="card-title" style="margin:0">Historial de pagos</div>
+              <button class="btn btn-sm" style="background:#C44B2B;color:#fff;border:none;font-size:11px;padding:4px 10px" onclick="setTipo('pago-tc', document.querySelector('#type-toggle button:last-child'));showPage('registro',document.querySelector('[data-page=registro]'))">+ Pagar TC</button>
+            </div>
+            <div id="tc-pagos-list"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -946,7 +975,7 @@ let patrimonioData = JSON.parse(localStorage.getItem('poritos_patrimonio') || JS
   activos: [],
   pasivos: []
 }));
-let tarjetasData = JSON.parse(localStorage.getItem('poritos_tarjetas') || JSON.stringify({ tarjetas: [], compras: [] }));
+let tarjetasData = JSON.parse(localStorage.getItem('poritos_tarjetas') || JSON.stringify({ tarjetas: [], compras: [], pagosTC: [] }));
 let tcTabActual = 'todas';
 let tcColorSel = 0;
 
@@ -968,7 +997,7 @@ const MONTHS = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Ago
 const CAT_COLORS = {
   'Vivienda':'#185FA5','Alimentación':'#1D9E75','Transporte':'#D85A30',
   'Salud':'#D4537E','Educación':'#7F77DD','Servicios básicos':'#5DCAA5',
-  'Entretenimiento':'#BA7517','Deudas':'#E24B4A','Familia':'#639922','Otros':'#888780',
+  'Entretenimiento':'#BA7517','Deudas':'#E24B4A','Pago Tarjeta':'#C44B2B','Familia':'#639922','Otros':'#888780',
   'Sueldo':'#1D9E75','Renta propiedad':'#185FA5','Bono':'#639922','Otro':'#888780','Freelance':'#7F77DD',
   'Pie vivienda':'#185FA5','Cuenta vista':'#5DCAA5','Depósito a plazo':'#0F6E56','Fondo mutuo':'#7F77DD','APV':'#BA7517','Cuenta 2 AFP':'#639922'
 };
@@ -976,7 +1005,7 @@ const QUICK_CATS = [
   {label:'Supermercado',cat:'Alimentación'},{label:'Bencina',cat:'Transporte'},
   {label:'Servicios',cat:'Servicios básicos'},{label:'Salud',cat:'Salud'},
   {label:'Colegio',cat:'Educación'},{label:'Dividendo',cat:'Vivienda'},
-  {label:'Entreteni-miento',cat:'Entretenimiento'},{label:'Otros',cat:'Otros'}
+  {label:'Entreteni-miento',cat:'Entretenimiento'},{label:'Pago TC',cat:'Pago Tarjeta'},{label:'Otros',cat:'Otros'}
 ];
 
 const ACT_TIPO_ICONS = { vivienda:'🏠', auto:'🚗', inversion:'📈', otro:'💼' };
@@ -1180,11 +1209,21 @@ function updateMonthLabels() {
 // ══════════════════════════════════════════════
 function setTipo(tipo, btn) {
   tipoActual = tipo;
-  document.getElementById('sec-gasto').style.display = tipo==='gasto' ? '' : 'none';
-  document.getElementById('sec-ingreso').style.display = tipo==='ingreso' ? '' : 'none';
-  document.getElementById('sec-ahorro').style.display = tipo==='ahorro' ? '' : 'none';
+  document.getElementById('sec-gasto').style.display    = tipo==='gasto'    ? '' : 'none';
+  document.getElementById('sec-ingreso').style.display  = tipo==='ingreso'  ? '' : 'none';
+  document.getElementById('sec-ahorro').style.display   = tipo==='ahorro'   ? '' : 'none';
+  document.getElementById('sec-pago-tc').style.display  = tipo==='pago-tc'  ? '' : 'none';
   document.querySelectorAll('.type-toggle button').forEach(b => b.className = '');
   btn.className = `active-${tipo}`;
+  if (tipo === 'pago-tc') {
+    const sel = document.getElementById('ptc-tarjeta');
+    const tarjetas = tarjetasData.tarjetas || [];
+    sel.innerHTML = tarjetas.length
+      ? tarjetas.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('')
+      : '<option value="">— Sin tarjetas registradas —</option>';
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('ptc-fecha').value = today;
+  }
 }
 
 function buildQuickCats() {
@@ -1241,6 +1280,34 @@ async function submitAhorro() {
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ahorro',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#185FA5'); });
   document.getElementById('a-desc').value = ''; document.getElementById('a-monto').value = '';
   toast('Ahorro registrado', '#185FA5'); renderDashboard(); renderTodayList();
+}
+
+async function submitPagoTC() {
+  const tarjetaId = document.getElementById('ptc-tarjeta').value;
+  const monto     = parseFloat(document.getElementById('ptc-monto').value);
+  const fecha     = document.getElementById('ptc-fecha').value;
+  const quien     = document.getElementById('ptc-quien').value;
+  const descInput = document.getElementById('ptc-desc').value.trim();
+  if (!tarjetaId) { toast('Selecciona una tarjeta', '#C44B2B'); return; }
+  if (!monto || monto <= 0) { toast('Ingresa el monto pagado', '#C44B2B'); return; }
+  if (!fecha) { toast('Ingresa la fecha del pago', '#C44B2B'); return; }
+  const tarjeta = (tarjetasData.tarjetas || []).find(t => t.id === tarjetaId);
+  const nombreTC = tarjeta ? tarjeta.nombre : 'Tarjeta';
+  const desc = descInput || `Pago ${nombreTC}`;
+  // 1. Registrar como gasto en Transacciones
+  const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:'Pago Tarjeta', Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
+  localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:'Pago Tarjeta',descripcion:desc,monto,quien,recurrente:false}})
+    .then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+  // 2. Registrar pago en historial TC
+  if (!tarjetasData.pagosTC) tarjetasData.pagosTC = [];
+  tarjetasData.pagosTC.unshift({ id:'PTC'+Date.now(), tarjeta_id:tarjetaId, monto, fecha, descripcion:desc, quien });
+  saveTarjetasLocal();
+  // 3. Limpiar y refrescar
+  document.getElementById('ptc-monto').value = '';
+  document.getElementById('ptc-desc').value  = '';
+  toast(`Pago ${nombreTC} registrado ✓`, '#1D9E75');
+  renderDashboard(); renderTodayList(); renderTarjetas();
 }
 
 async function delTx(id, el) {
@@ -1435,25 +1502,31 @@ function renderDashboard() {
   const nextYM = `${nextY}-${String(nextM).padStart(2,'0')}`;
   localStorage.setItem('saldo_arrastre_' + nextYM, libAcumulado);
 
+  // ── Cargo TC del mes ──
+  const tcTarjetas = tarjetasData.tarjetas || [];
+  const tcCargo    = tcTarjetas.reduce((s, t) => s + calcCargoPendiente(t.id), 0);
+  const tcDeuda    = tcTarjetas.reduce((s, t) => s + calcTotalUsado(t.id), 0);
+  const tcNCompras = (tarjetasData.compras || []).filter(c => calcCuotasRestantes(c) > 0).length;
+  const libNetTC   = libAcumulado - tcCargo;
+
   document.getElementById('m-ing').textContent = '$' + fmtK(ing);
   document.getElementById('m-gas').textContent = '$' + fmtK(gas);
   const ahoEl = document.getElementById('m-ahorro');
   ahoEl.textContent = '$' + fmtK(aho);
   const subEl = document.getElementById('m-tasa-sub');
   if (subEl) subEl.textContent = tasa + '% de ingresos · Meta: ≥ 20%';
-  const libEl = document.getElementById('m-libre');
+
+  const libEl    = document.getElementById('m-libre');
+  const libSubEl = document.getElementById('m-libre-sub');
   libEl.textContent = (libAcumulado < 0 ? '-$' : '$') + fmtK(Math.abs(libAcumulado));
-  libEl.className = 'm-value ' + (libAcumulado >= 0 ? 'm-pos' : 'm-neg');
-  if (saldoAnterior !== 0) {
-    const subLibEl = libEl.nextElementSibling;
-    const hint = `inc. $${fmtK(Math.abs(saldoAnterior))} arrastre`;
-    if (subLibEl && subLibEl.classList.contains('m-sub')) {
-      subLibEl.textContent = hint;
+  libEl.className   = 'm-value ' + (libAcumulado >= 0 ? 'm-pos' : 'm-neg');
+  if (libSubEl) {
+    if (tcCargo > 0) {
+      libSubEl.innerHTML = `TC: −$${fmtK(tcCargo)} → <strong style="color:${libNetTC>=0?'#1A7A4A':'var(--danger)'}">$${fmtK(Math.abs(libNetTC))}</strong>`;
+    } else if (saldoAnterior !== 0) {
+      libSubEl.textContent = `inc. $${fmtK(Math.abs(saldoAnterior))} arrastre`;
     } else {
-      const s = document.createElement('div');
-      s.className = 'm-sub';
-      s.textContent = hint;
-      libEl.insertAdjacentElement('afterend', s);
+      libSubEl.textContent = '';
     }
   }
 
@@ -1461,7 +1534,7 @@ function renderDashboard() {
   const { totalActivos, totalPasivos, neto } = calcPatrimonioNeto();
   if (totalActivos > 0 || totalPasivos > 0) {
     document.getElementById('dash-patrimonio-banner').innerHTML = `
-    <div class="nw-banner" style="margin-bottom:24px" onclick="showPage('patrimonio',document.querySelector('.nav-item:nth-child(9)'))">
+    <div class="nw-banner" style="margin-bottom:16px;cursor:pointer" onclick="showPage('patrimonio',document.querySelector('.nav-item:nth-child(9)'))">
       <div class="nw-main">
         <div class="nw-label">Patrimonio neto familiar</div>
         <div class="nw-value" style="color:${neto>=0?'#6EBF8B':'#E86C6C'}">${neto>=0?'':'−'}$${fmt(Math.abs(neto))}</div>
@@ -1474,6 +1547,37 @@ function renderDashboard() {
     </div>`;
   } else {
     document.getElementById('dash-patrimonio-banner').innerHTML = '';
+  }
+
+  // Mini TC banner
+  if (tcTarjetas.length > 0) {
+    const tcPct = tcTarjetas.reduce((s,t) => s + (t.limite||0), 0) > 0
+      ? Math.min(100, Math.round(tcDeuda / tcTarjetas.reduce((s,t) => s + (t.limite||0), 0) * 100))
+      : 0;
+    const barColor = tcPct >= 80 ? '#E86C6C' : tcPct >= 50 ? '#FBBF24' : '#6EBF8B';
+    document.getElementById('dash-tc-banner').innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:var(--shadow);cursor:pointer;border-left:4px solid var(--danger)"
+         onclick="showPage('tarjetas',document.querySelector('[onclick*=tarjetas]'))">
+      <div style="flex:1">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.10em;color:var(--text3);font-weight:700;margin-bottom:6px">💳 Tarjetas de crédito</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--danger)">$${fmt(tcCargo)}</span>
+          <span style="font-size:12px;color:var(--text3)">cargo este mes · ${tcNCompras} compra${tcNCompras!==1?'s':''} vigente${tcNCompras!==1?'s':''}</span>
+        </div>
+        <div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:20px;overflow:hidden;max-width:300px">
+          <div style="width:${tcPct}%;height:100%;background:${barColor};border-radius:20px;transition:width 0.4s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Deuda total: $${fmt(tcDeuda)} · ${tcPct}% del cupo utilizado</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:var(--text3)">Flujo libre neto</div>
+        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${libNetTC>=0?'#1A7A4A':'var(--danger)'}">${libNetTC>=0?'':'−'}$${fmtK(Math.abs(libNetTC))}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">después de TC</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Ver tarjetas →</div>
+      </div>
+    </div>`;
+  } else {
+    document.getElementById('dash-tc-banner').innerHTML = '';
   }
 
   // Gráfico comparativo
@@ -2164,6 +2268,29 @@ function renderTarjetas() {
       { tipo: 'pago',  tarjeta: t.nombre, dia: t.fecha_pago,  dias: mkDias(t.fecha_pago)  }
     ];
   }).filter(f => f.dia).sort((a, b) => a.dias - b.dias);
+
+  // ── Historial de pagos ──
+  const pagosEl = document.getElementById('tc-pagos-list');
+  if (pagosEl) {
+    const pagos = (tarjetasData.pagosTC || []);
+    const pagosFiltro = tcTabActual === 'todas' ? pagos : pagos.filter(p => p.tarjeta_id === tcTabActual);
+    if (!pagosFiltro.length) {
+      pagosEl.innerHTML = '<div class="empty"><div class="e-icon">💳</div>Sin pagos registrados</div>';
+    } else {
+      pagosEl.innerHTML = pagosFiltro.slice(0, 12).map(p => {
+        const tc = tarjetas.find(t => t.id === p.tarjeta_id);
+        const cardName = tc ? tc.nombre : '';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:18px">💰</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">${p.descripcion || 'Pago tarjeta'}</div>
+            <div style="font-size:11px;color:var(--text3)">${p.fecha}${cardName && tcTabActual === 'todas' ? ' · ' + cardName : ''} · ${p.quien || ''}</div>
+          </div>
+          <div style="font-size:14px;font-weight:700;font-family:var(--mono);color:#C44B2B">-$${fmt(p.monto)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
 
   document.getElementById('tc-fechas-list').innerHTML = filas.length ? filas.slice(0, 6).map(f => {
     const urgente = f.dias <= 3;
