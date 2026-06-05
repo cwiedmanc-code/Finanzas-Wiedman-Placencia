@@ -420,6 +420,56 @@ html { overflow-x: hidden; }
   </div>
 </div>
 
+<!-- ── Modal Editar Transacción ── -->
+<div class="modal-overlay hidden" id="modal-edit-tx">
+  <div class="modal">
+    <div class="modal-title">Editar movimiento</div>
+    <input type="hidden" id="etx-id">
+    <div class="form-row form-row-2">
+      <div class="field"><label>Tipo</label>
+        <select id="etx-tipo" onchange="onEditTxTipoChange()">
+          <option value="gasto">Gasto</option>
+          <option value="ingreso">Ingreso</option>
+          <option value="ahorro">Ahorro</option>
+        </select>
+      </div>
+      <div class="field"><label>Fecha</label><input type="date" id="etx-fecha"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Descripción</label><input type="text" id="etx-desc" placeholder="Descripción..."></div>
+      <div class="field"><label>Monto (CLP)</label><input type="number" id="etx-monto" placeholder="0" min="0"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label id="etx-cat-label">Categoría</label>
+        <select id="etx-cat-gasto">
+          <option>Vivienda</option><option>Alimentación</option><option>Transporte</option>
+          <option>Salud</option><option>Educación</option><option>Servicios básicos</option>
+          <option>Entretenimiento</option><option>Deudas</option><option>Pago Tarjeta</option><option>Familia</option><option>Otros</option>
+        </select>
+        <select id="etx-cat-ingreso" style="display:none">
+          <option>Sueldo</option><option>Renta propiedad</option><option>Bono</option><option>Otro</option>
+        </select>
+        <select id="etx-cat-ahorro" style="display:none">
+          <option>Pie vivienda</option><option>Cuenta vista</option><option>Depósito a plazo</option>
+          <option>Fondo mutuo</option><option>APV</option><option>Cuenta 2 AFP</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>¿Quién?</label>
+        <select id="etx-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+      </div>
+    </div>
+    <div id="etx-rec-row" style="margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer">
+        <input type="checkbox" id="etx-rec"> Gasto recurrente mensual
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-tx')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditTx()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal Pasivo ── -->
 <div class="modal-overlay hidden" id="modal-pasivo">
   <div class="modal">
@@ -1321,6 +1371,61 @@ async function delTx(id, el) {
   el.closest('.tx-item').remove(); renderDashboard(); toast('Eliminado', '#888');
 }
 
+function openEditTx(id) {
+  const t = cachedTx.find(x => x.ID === id);
+  if (!t) return;
+  document.getElementById('etx-id').value    = t.ID;
+  document.getElementById('etx-tipo').value  = t.Tipo || 'gasto';
+  document.getElementById('etx-fecha').value = t.Fecha || '';
+  document.getElementById('etx-desc').value  = t.Descripcion || '';
+  document.getElementById('etx-monto').value = t.Monto || '';
+  document.getElementById('etx-quien').value = t.Quien || 'Pori';
+  document.getElementById('etx-rec').checked = t.Recurrente === 'Sí';
+  onEditTxTipoChange();
+  const tipo = t.Tipo || 'gasto';
+  const selId = tipo === 'ingreso' ? 'etx-cat-ingreso' : tipo === 'ahorro' ? 'etx-cat-ahorro' : 'etx-cat-gasto';
+  document.getElementById(selId).value = t.Categoria || '';
+  document.getElementById('modal-edit-tx').classList.remove('hidden');
+}
+
+function onEditTxTipoChange() {
+  const tipo = document.getElementById('etx-tipo').value;
+  document.getElementById('etx-cat-gasto').style.display   = tipo === 'gasto'   ? '' : 'none';
+  document.getElementById('etx-cat-ingreso').style.display = tipo === 'ingreso' ? '' : 'none';
+  document.getElementById('etx-cat-ahorro').style.display  = tipo === 'ahorro'  ? '' : 'none';
+  document.getElementById('etx-rec-row').style.display     = tipo === 'gasto'   ? '' : 'none';
+}
+
+async function saveEditTx() {
+  const id    = document.getElementById('etx-id').value;
+  const tipo  = document.getElementById('etx-tipo').value;
+  const fecha = document.getElementById('etx-fecha').value;
+  const desc  = document.getElementById('etx-desc').value.trim();
+  const monto = parseFloat(document.getElementById('etx-monto').value);
+  const quien = document.getElementById('etx-quien').value;
+  const rec   = document.getElementById('etx-rec').checked;
+  const selId = tipo === 'ingreso' ? 'etx-cat-ingreso' : tipo === 'ahorro' ? 'etx-cat-ahorro' : 'etx-cat-gasto';
+  const cat   = document.getElementById(selId).value;
+  if (!desc || !monto || !fecha) { toast('Completa todos los campos', '#C44B2B'); return; }
+  const updated = { ID: id, Fecha: fecha, Tipo: tipo, Categoria: cat, Descripcion: desc,
+    Monto: monto, Quien: quien, Recurrente: rec ? 'Sí' : 'No' };
+  // Actualizar en local
+  const idxLocal = localTx.findIndex(t => t.ID === id);
+  if (idxLocal >= 0) localTx[idxLocal] = updated; else localTx.push(updated);
+  localStorage.setItem('poritos_tx', JSON.stringify(localTx));
+  const idxCache = cachedTx.findIndex(t => t.ID === id);
+  if (idxCache >= 0) cachedTx[idxCache] = updated; else cachedTx.push(updated);
+  // Actualizar en Sheets: borrar + crear
+  if (SCRIPT_URL) {
+    await apiPost({action:'deleteTx', id});
+    apiPost({action:'addTx', data:{fecha, tipo, categoria:cat, descripcion:desc, monto, quien, recurrente:rec}})
+      .then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+  }
+  closeModal('modal-edit-tx');
+  renderDashboard(); renderTodayList(); renderHistorial();
+  toast('Movimiento actualizado', '#1D9E75');
+}
+
 // ══════════════════════════════════════════════
 // COMPARATIVO 3 MESES
 // ══════════════════════════════════════════════
@@ -1636,6 +1741,7 @@ function txItemHTML(t) {
     </div>
     <div class="tx-amount" style="color:${aColor}">${sign}$${fmt(t.Monto)}</div>
     <div class="tx-date">día ${day}</div>
+    <button onclick="openEditTx('${t.ID}')" title="Editar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;line-height:1">✎</button>
     <button class="tx-del" onclick="delTx('${t.ID}',this)" title="Eliminar">×</button>
   </div>`;
 }
