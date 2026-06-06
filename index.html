@@ -302,14 +302,25 @@ html { overflow-x: hidden; }
 
   /* ── TC móvil ── */
   .tc-card-visual { padding: 16px 16px 48px; }
-  .tc-card-visual div[style*="font-size:24px"] { font-size: 20px !important; }
-  .tc-compra-item { gap: 8px; padding: 10px 10px; }
-  .tc-compra-right { flex-shrink: 0; max-width: 100px; min-width: 0; }
-  .tc-compra-cuota-monto { font-size: 12px; }
-  .tc-compra-sub { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Items de compras: 2 filas — [icono|info] y luego [precios|botones] */
+  .tc-compra-item { flex-wrap: wrap; gap: 4px 8px; padding: 10px; }
+  .tc-compra-dot { flex-shrink: 0; }
+  .tc-compra-info { flex: 1; min-width: 0; max-width: calc(100% - 44px); }
+  .tc-compra-right {
+    flex: 0 0 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding-left: 44px;
+    text-align: left;
+    max-width: none;
+  }
+  .tc-compra-right > div[style*="margin-top"] { margin-top: 0 !important; margin-left: auto; }
+  .tc-compra-cuota-monto { font-size: 13px; }
+  .tc-compra-sub { font-size: 10px; margin-top: 0; }
   .tc-compra-desc { font-size: 12px; }
   .tc-compra-meta { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tc-tab-row { gap: 4px; }
   .tc-tab { font-size: 11px; padding: 5px 10px; }
 
   .bottom-nav {
