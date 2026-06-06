@@ -236,7 +236,7 @@ html { overflow-x: hidden; }
 .empty .e-icon { font-size: 28px; margin-bottom: 8px; }
 
 /* ── Tarjetas de crédito ── */
-.tc-card-visual { border-radius: 16px; padding: 22px 24px 48px; position: relative; overflow: hidden; color: #fff; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 8px 28px rgba(0,0,0,0.20); margin-bottom: 16px; transition: transform 0.2s; }
+.tc-card-visual { border-radius: 16px; padding: 22px 24px 48px; position: relative; overflow: hidden; color: #fff; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 8px 28px rgba(0,0,0,0.20); margin-bottom: 16px; transition: transform 0.2s; width: 100%; box-sizing: border-box; }
 .tc-card-visual:hover { transform: translateY(-2px); }
 .tc-card-chip { width: 32px; height: 24px; background: linear-gradient(135deg, rgba(255,215,0,0.75) 0%, rgba(210,140,0,0.55) 100%); border-radius: 5px; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
 .tc-card-logo { position: absolute; top: 18px; right: 20px; background: rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
@@ -2217,6 +2217,19 @@ async function loadTarjetas() {
     if (SCRIPT_URL) {
       const d = await apiGet({ action: 'getTarjetas' });
       if (d && (d.tarjetas || d.compras)) {
+        // Si Sheets devuelve null para fecha_primera_cuota (hoja sin columna 12 actualizada),
+        // preservar el valor que estaba en localStorage para no perder la configuración.
+        const local = JSON.parse(localStorage.getItem('poritos_tarjetas') || '{}');
+        const localCompras = local.compras || [];
+        if (d.compras && localCompras.length) {
+          d.compras = d.compras.map(c => {
+            if (!c.fecha_primera_cuota) {
+              const lc = localCompras.find(x => x.id === c.id);
+              if (lc && lc.fecha_primera_cuota) c.fecha_primera_cuota = lc.fecha_primera_cuota;
+            }
+            return c;
+          });
+        }
         tarjetasData = d;
         localStorage.setItem('poritos_tarjetas', JSON.stringify(d));
         return;
