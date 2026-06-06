@@ -236,7 +236,7 @@ html { overflow-x: hidden; }
 .empty .e-icon { font-size: 28px; margin-bottom: 8px; }
 
 /* ── Tarjetas de crédito ── */
-.tc-card-visual { border-radius: 16px; padding: 22px 24px; position: relative; overflow: hidden; color: #fff; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 8px 28px rgba(0,0,0,0.20); margin-bottom: 16px; transition: transform 0.2s; }
+.tc-card-visual { border-radius: 16px; padding: 22px 24px 48px; position: relative; overflow: hidden; color: #fff; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 8px 28px rgba(0,0,0,0.20); margin-bottom: 16px; transition: transform 0.2s; }
 .tc-card-visual:hover { transform: translateY(-2px); }
 .tc-card-chip { width: 32px; height: 24px; background: linear-gradient(135deg, rgba(255,215,0,0.75) 0%, rgba(210,140,0,0.55) 100%); border-radius: 5px; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
 .tc-card-logo { position: absolute; top: 18px; right: 20px; background: rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
@@ -299,6 +299,18 @@ html { overflow-x: hidden; }
   .nw-banner { flex-direction: column; align-items: flex-start; }
   .nw-value { font-size: 26px; }
   .nw-cols { gap: 20px; }
+
+  /* ── TC móvil ── */
+  .tc-card-visual { padding: 16px 16px 48px; }
+  .tc-card-visual div[style*="font-size:24px"] { font-size: 20px !important; }
+  .tc-compra-item { gap: 8px; padding: 10px 10px; }
+  .tc-compra-right { flex-shrink: 0; max-width: 100px; min-width: 0; }
+  .tc-compra-cuota-monto { font-size: 12px; }
+  .tc-compra-sub { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tc-compra-desc { font-size: 12px; }
+  .tc-compra-meta { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tc-tab-row { gap: 4px; }
+  .tc-tab { font-size: 11px; padding: 5px 10px; }
 
   .bottom-nav {
     display: flex;
