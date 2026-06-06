@@ -2300,7 +2300,7 @@ function calcCuotasAtrasadas(c) {
   return Math.max(0, esperadas - pagadas);
 }
 function calcCuotasRestantes(c) { return Math.max(0, c.cuotas_totales - calcCuotaActual(c)); }
-function calcMontoRestante(c)   { return calcCuotasRestantes(c) * c.monto_por_cuota; }
+function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.monto_por_cuota) || 0); }
 
 function calcTotalUsado(tarjeta_id) {
   return (tarjetasData.compras || [])
@@ -2402,51 +2402,52 @@ function renderTarjetas() {
         ? `⚠ ${atrasadas} cuota${atrasadas > 1 ? 's' : ''} sin pago · ${restantes} restante${restantes !== 1 ? 's' : ''}`
         : `Cuota ${cuotaActual} de ${c.cuotas_totales} · ${restantes} restante${restantes !== 1 ? 's' : ''}`;
     const estadoColor  = atrasadas > 0 ? '#E24B4A' : 'var(--text3)';
-    return `<div class="tc-compra-item" style="${opaque ? 'opacity:0.5' : ''}">
-      <div class="tc-compra-dot" style="background:${terminada ? 'var(--surface2)' : atrasadas > 0 ? 'rgba(226,75,74,0.15)' : 'var(--danger-light)'}">${icon}</div>
-      <div class="tc-compra-info">
-        <div class="tc-compra-desc">${c.tienda || c.descripcion}</div>
-        <div class="tc-compra-meta">${c.descripcion && c.descripcion !== c.tienda ? c.descripcion + ' · ' : ''}${c.categoria}${tcTabActual === 'todas' && cardName ? ' · ' + cardName : ''} · ${c.quien || ''}</div>
-        <div class="tc-cuota-bar"><div class="tc-cuota-fill" style="width:${pct}%;background:${barColor}"></div></div>
-        <div style="font-size:10px;color:${estadoColor};margin-top:3px">${estadoTxt}${c.tasa_interes ? ' · Tasa ' + c.tasa_interes + '%' : ''}</div>
-      </div>
-      <div class="tc-compra-right">
-        <div class="tc-compra-cuota-monto" style="color:${terminada ? 'var(--text3)' : 'var(--danger)'}">$${fmt(c.monto_por_cuota)}/mes</div>
-        <div class="tc-compra-sub">Total: $${fmt(c.monto_total)}</div>
-        <div class="tc-compra-sub">Resta: $${fmt(calcMontoRestante(c))}</div>
-        <div style="display:flex;gap:4px;margin-top:5px">
-          <button onclick="openModalCompraTc('${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;line-height:1" title="Editar">✎</button>
-          <button onclick="deleteCompraTC('${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px 4px;line-height:1" title="Eliminar">×</button>
+    return `
+      <div class="tc-compra-item${opaque ? ' opaque' : ''}" style="opacity:${opaque ? 0.45 : 1}">
+        <div class="tc-compra-icon">${icon}</div>
+        <div class="tc-compra-info">
+          <div class="tc-compra-name">${c.descripcion || 'Sin descripción'}${cardName && tcTabActual === 'todas' ? ' <span style="opacity:0.5;font-size:11px">· ' + cardName + '</span>' : ''}</div>
+          <div class="tc-compra-detail">${c.tienda || ''}${c.tienda && c.categoria ? ' · ' : ''}${c.categoria || ''}${c.quien ? ' · ' + c.quien : ''}</div>
+          <div class="tc-compra-bar"><div class="tc-compra-fill" style="width:${pct}%;background:${barColor}"></div></div>
+          <div class="tc-compra-estado" style="color:${estadoColor}">${estadoTxt}</div>
         </div>
-      </div>
-    </div>`;
+        <div class="tc-compra-right">
+          <div>
+            <div class="tc-compra-cuota">$${fmt(c.monto_por_cuota)}/mes</div>
+            <div class="tc-compra-total">Total $${fmt(c.monto_total)}</div>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <button onclick="openModalCompraTc('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:var(--text2)">✎</button>
+            <button onclick="deleteCompra('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:var(--danger)">✕</button>
+          </div>
+        </div>
+      </div>`;
   };
 
-  let comprasHtml = '';
-  if (vigentes.length)    comprasHtml += vigentes.map(c => renderCompra(c, false)).join('');
-  if (finalizadas.length) comprasHtml += `<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:12px 0 6px">Finalizadas</div>` + finalizadas.map(c => renderCompra(c, true)).join('');
-  if (!comprasHtml)       comprasHtml = '<div class="empty"><div class="e-icon">💳</div>Sin compras registradas — agrega tu primera compra en cuotas</div>';
-  document.getElementById('tc-compras-list').innerHTML = comprasHtml;
+  document.getElementById('tc-compras-list').innerHTML =
+    (vigentes.length
+      ? vigentes.map(c => renderCompra(c, false)).join('')
+      : '<div class="empty"><div class="e-icon">🛍️</div>Sin compras en cuotas vigentes — agrega tu primera compra</div>') +
+    (finalizadas.length
+      ? `<div style="margin-top:12px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);padding:4px 0">Finalizadas</div>` +
+        finalizadas.map(c => renderCompra(c, true)).join('')
+      : '');
 
   // ── Resumen por tarjeta ──
   document.getElementById('tc-resumen-list').innerHTML = tarjetas.map(t => {
-    const usado  = calcTotalUsado(t.id);
-    const cargo  = calcCargoPendiente(t.id);
-    const limite = t.limite || 0;
-    const pct    = limite > 0 ? Math.min(100, Math.round(usado / limite * 100)) : 0;
-    const barColor = pct >= 80 ? 'var(--danger)' : pct >= 50 ? 'var(--gold-dark)' : '#1A7A4A';
-    const grad   = TC_GRADIENTS[t.color_idx || 0];
-    const nCompras = (tarjetasData.compras || []).filter(c => c.tarjeta_id === t.id && calcCuotasRestantes(c) > 0).length;
+    const usado   = calcTotalUsado(t.id);
+    const limite  = t.limite || 0;
+    const pct     = limite > 0 ? Math.min(100, Math.round(usado / limite * 100)) : 0;
+    const nCompras= (tarjetasData.compras || []).filter(c => c.tarjeta_id === t.id && calcCuotasRestantes(c) > 0).length;
+    const barColor= pct >= 80 ? 'var(--danger)' : pct >= 50 ? '#FBBF24' : 'var(--accent)';
+    const cargo   = calcCargoPendiente(t.id);
     return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:10px;height:10px;border-radius:3px;background:${grad};flex-shrink:0"></div>
-          <div style="font-size:13px;font-weight:600">${t.nombre}</div>
-        </div>
-        <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--danger)">$${fmt(cargo)}/mes</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:13px;font-weight:600">${t.nombre}</div>
+        <div style="font-size:13px;font-weight:700;font-family:var(--mono)">$${fmt(cargo)}/mes</div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
-        <span>Deuda: $${fmt(usado)}</span>
+        <span>Usado: $${fmt(usado)}</span>
         <span>Disponible: $${fmt(Math.max(0, limite - usado))}</span>
       </div>
       <div style="height:4px;background:var(--surface2);border-radius:20px;overflow:hidden">
@@ -2546,81 +2547,76 @@ function selectTCColor(idx) {
   tcColorSel = idx;
   document.getElementById('tc-color-idx').value = idx;
   document.querySelectorAll('.tc-color-opt').forEach((el, i) => {
-    el.style.border     = i === idx ? '3px solid var(--navy)' : '3px solid transparent';
-    el.style.transform  = i === idx ? 'scale(1.2)' : 'scale(1)';
-    el.style.boxShadow  = i === idx ? '0 0 0 2px rgba(12,20,38,0.3)' : 'none';
+    el.style.border = i === idx ? '3px solid var(--navy)' : '3px solid transparent';
   });
 }
 
 function saveTarjeta() {
-  const nombre = document.getElementById('tc-nombre').value.trim();
-  if (!nombre) { toast('Ingresa el nombre de la tarjeta', '#C44B2B'); return; }
   const editId = document.getElementById('tc-edit-id').value;
-  const tarjeta = {
-    id: editId || 'TC' + Date.now(),
-    nombre,
-    banco:       document.getElementById('tc-banco').value.trim(),
-    limite:      parseInt(document.getElementById('tc-limite').value)  || 0,
-    fecha_corte: parseInt(document.getElementById('tc-corte').value)   || 25,
-    fecha_pago:  parseInt(document.getElementById('tc-pago').value)    || 10,
-    color_idx:   parseInt(document.getElementById('tc-color-idx').value) || 0,
-    quien:       document.getElementById('tc-quien').value,
-    updated:     new Date().toISOString()
-  };
+  const nombre = document.getElementById('tc-nombre').value.trim();
+  const banco  = document.getElementById('tc-banco').value.trim();
+  const limite = parseFloat(document.getElementById('tc-limite').value) || 0;
+  const quien  = document.getElementById('tc-quien').value;
+  const corte  = document.getElementById('tc-corte').value;
+  const pago   = document.getElementById('tc-pago').value;
+  if (!nombre) return toast('Ingresa el nombre de la tarjeta', 'var(--danger)');
+
   if (!tarjetasData.tarjetas) tarjetasData.tarjetas = [];
   if (editId) {
     const idx = tarjetasData.tarjetas.findIndex(t => t.id === editId);
-    if (idx >= 0) tarjetasData.tarjetas[idx] = tarjeta; else tarjetasData.tarjetas.push(tarjeta);
+    if (idx >= 0) tarjetasData.tarjetas[idx] = { ...tarjetasData.tarjetas[idx], nombre, banco, limite, quien, fecha_corte: corte, fecha_pago: pago, color_idx: tcColorSel };
   } else {
-    tarjetasData.tarjetas.push(tarjeta);
-    tcTabActual = tarjeta.id;
+    tarjetasData.tarjetas.push({ id: 'TC' + Date.now(), nombre, banco, limite, quien, fecha_corte: corte, fecha_pago: pago, color_idx: tcColorSel });
   }
   saveTarjetasLocal();
   closeModal('modal-tarjeta');
   renderTarjetas();
-  toast('Tarjeta guardada', '#1D9E75');
+  toast(editId ? 'Tarjeta actualizada ✓' : 'Tarjeta agregada ✓', '#1D9E75');
 }
 
 function deleteTCCard(id) {
-  if (!confirm('¿Eliminar esta tarjeta y todas sus compras registradas?')) return;
+  if (!confirm('¿Eliminar esta tarjeta y todas sus compras?')) return;
   tarjetasData.tarjetas = (tarjetasData.tarjetas || []).filter(t => t.id !== id);
   tarjetasData.compras  = (tarjetasData.compras  || []).filter(c => c.tarjeta_id !== id);
+  saveTarjetasLocal();
   tcTabActual = 'todas';
-  saveTarjetasLocal(); renderTarjetas(); toast('Tarjeta eliminada', '#888');
+  renderTarjetas();
+  toast('Tarjeta eliminada', 'var(--danger)');
 }
 
 // ── Modal Compra TC ──
 function openModalCompraTc(editId) {
-  const tarjetas = tarjetasData.tarjetas || [];
-  if (!tarjetas.length) { toast('Agrega una tarjeta primero', '#C44B2B'); return; }
-
-  document.getElementById('tc-compra-tarjeta').innerHTML =
-    tarjetas.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
-  if (tcTabActual !== 'todas') document.getElementById('tc-compra-tarjeta').value = tcTabActual;
-
-  ['tc-compra-tienda','tc-compra-desc','tc-compra-monto','tc-compra-cuotas','tc-compra-cuota-monto','tc-compra-tasa','tc-compra-primera-cuota'].forEach(id => {
+  ['tc-compra-tienda','tc-compra-desc','tc-compra-monto','tc-compra-cuotas',
+   'tc-compra-cuota-monto','tc-compra-tasa','tc-compra-primera-cuota'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('tc-compra-edit-id').value = '';
-  document.getElementById('tc-compra-fecha').value   = new Date().toISOString().split('T')[0];
   document.getElementById('modal-compra-tc-title').textContent = 'Registrar compra en cuotas';
+
+  const selTarjeta = document.getElementById('tc-compra-tarjeta');
+  selTarjeta.innerHTML = (tarjetasData.tarjetas || []).map(t =>
+    `<option value="${t.id}">${t.nombre}</option>`
+  ).join('');
+  if (tcTabActual !== 'todas') selTarjeta.value = tcTabActual;
+
+  document.getElementById('tc-compra-fecha').valueAsDate = new Date();
 
   if (editId) {
     const c = (tarjetasData.compras || []).find(x => x.id === editId);
     if (c) {
-      document.getElementById('tc-compra-edit-id').value      = c.id;
+      document.getElementById('tc-compra-edit-id').value        = c.id;
       document.getElementById('modal-compra-tc-title').textContent = 'Editar compra';
-      document.getElementById('tc-compra-tarjeta').value      = c.tarjeta_id;
-      document.getElementById('tc-compra-fecha').value        = c.fecha_compra || '';
-      document.getElementById('tc-compra-tienda').value       = c.tienda || '';
-      document.getElementById('tc-compra-desc').value         = c.descripcion || '';
-      document.getElementById('tc-compra-monto').value        = c.monto_total || '';
-      document.getElementById('tc-compra-cuotas').value       = c.cuotas_totales || '';
-      document.getElementById('tc-compra-cuota-monto').value  = c.monto_por_cuota || '';
-      document.getElementById('tc-compra-tasa').value         = c.tasa_interes || '';
-      document.getElementById('tc-compra-cat').value          = c.categoria || 'Otro';
-      document.getElementById('tc-compra-quien').value        = c.quien || 'Pori';
-      document.getElementById('tc-compra-primera-cuota').value = c.fecha_primera_cuota || '';
+      selTarjeta.value                                            = c.tarjeta_id || '';
+      document.getElementById('tc-compra-fecha').value           = c.fecha_compra || '';
+      document.getElementById('tc-compra-tienda').value          = c.tienda || '';
+      document.getElementById('tc-compra-desc').value            = c.descripcion || '';
+      document.getElementById('tc-compra-monto').value           = c.monto_total || '';
+      document.getElementById('tc-compra-cuotas').value          = c.cuotas_totales || '';
+      document.getElementById('tc-compra-cuota-monto').value     = c.monto_por_cuota || '';
+      document.getElementById('tc-compra-tasa').value            = c.tasa_interes || '';
+      document.getElementById('tc-compra-cat').value             = c.categoria || 'Otro';
+      document.getElementById('tc-compra-quien').value           = c.quien || 'Pori';
+      document.getElementById('tc-compra-primera-cuota').value   = c.fecha_primera_cuota || '';
     }
   }
   document.getElementById('modal-compra-tc').classList.remove('hidden');
@@ -2629,163 +2625,65 @@ function openModalCompraTc(editId) {
 function autoCalcCuotaMonto() {
   const monto  = parseFloat(document.getElementById('tc-compra-monto').value) || 0;
   const cuotas = parseInt(document.getElementById('tc-compra-cuotas').value)  || 0;
-  if (monto > 0 && cuotas > 0)
-    document.getElementById('tc-compra-cuota-monto').value = Math.round(monto / cuotas);
+  const tasa   = parseFloat(document.getElementById('tc-compra-tasa').value)  || 0;
+  if (monto > 0 && cuotas > 0) {
+    let montoCuota;
+    if (tasa > 0) {
+      const r = (tasa / 100) / 12;
+      montoCuota = Math.round(monto * r * Math.pow(1 + r, cuotas) / (Math.pow(1 + r, cuotas) - 1));
+    } else {
+      montoCuota = Math.round(monto / cuotas);
+    }
+    document.getElementById('tc-compra-cuota-monto').value = montoCuota;
+  }
 }
 
 function saveCompraTc() {
-  const tienda = document.getElementById('tc-compra-tienda').value.trim();
-  const desc   = document.getElementById('tc-compra-desc').value.trim();
-  const monto  = parseFloat(document.getElementById('tc-compra-monto').value) || 0;
-  const cuotas = parseInt(document.getElementById('tc-compra-cuotas').value)  || 1;
-  const cuotaMonto = parseFloat(document.getElementById('tc-compra-cuota-monto').value) || Math.round(monto / cuotas);
-  if (!tienda || !monto) { toast('Completa tienda y monto total', '#C44B2B'); return; }
+  const editId      = document.getElementById('tc-compra-edit-id').value;
+  const tarjeta_id  = document.getElementById('tc-compra-tarjeta').value;
+  const fecha       = document.getElementById('tc-compra-fecha').value;
+  const tienda      = document.getElementById('tc-compra-tienda').value.trim();
+  const desc        = document.getElementById('tc-compra-desc').value.trim();
+  const monto_total = parseFloat(document.getElementById('tc-compra-monto').value) || 0;
+  const cuotas      = parseInt(document.getElementById('tc-compra-cuotas').value)  || 1;
+  const monto_cuota = parseFloat(document.getElementById('tc-compra-cuota-monto').value) || Math.round(monto_total / cuotas);
+  const tasa        = parseFloat(document.getElementById('tc-compra-tasa').value)  || 0;
+  const cat         = document.getElementById('tc-compra-cat').value;
+  const quien       = document.getElementById('tc-compra-quien').value;
+  const primera     = document.getElementById('tc-compra-primera-cuota').value;
 
-  const editId = document.getElementById('tc-compra-edit-id').value;
+  if (!tarjeta_id)  return toast('Selecciona una tarjeta', 'var(--danger)');
+  if (!monto_total) return toast('Ingresa el monto total', 'var(--danger)');
+
   const compra = {
-    id:              editId || 'CTC' + Date.now(),
-    tarjeta_id:      document.getElementById('tc-compra-tarjeta').value,
-    descripcion:     desc || tienda,
-    tienda,
-    monto_total:     monto,
-    cuotas_totales:  cuotas,
-    monto_por_cuota: cuotaMonto,
-    fecha_compra:         document.getElementById('tc-compra-fecha').value,
-    fecha_primera_cuota:  document.getElementById('tc-compra-primera-cuota').value || null,
-    categoria:            document.getElementById('tc-compra-cat').value,
-    tasa_interes:    parseFloat(document.getElementById('tc-compra-tasa').value) || 0,
-    quien:           document.getElementById('tc-compra-quien').value,
-    updated:         new Date().toISOString()
+    id: editId || 'CMP' + Date.now(),
+    tarjeta_id, fecha_compra: fecha, tienda, descripcion: desc,
+    monto_total, cuotas_totales: cuotas, monto_por_cuota: monto_cuota,
+    tasa_interes: tasa, categoria: cat, quien,
+    fecha_primera_cuota: primera || (fecha ? fecha.substring(0, 7) : '')
   };
 
   if (!tarjetasData.compras) tarjetasData.compras = [];
   if (editId) {
     const idx = tarjetasData.compras.findIndex(c => c.id === editId);
-    if (idx >= 0) tarjetasData.compras[idx] = compra; else tarjetasData.compras.push(compra);
+    if (idx >= 0) tarjetasData.compras[idx] = compra;
   } else {
-    tarjetasData.compras.push(compra);
+    tarjetasData.compras.unshift(compra);
   }
   saveTarjetasLocal();
   closeModal('modal-compra-tc');
   renderTarjetas();
-  toast('Compra registrada', '#1D9E75');
+  toast(editId ? 'Compra actualizada ✓' : 'Compra registrada ✓', '#1D9E75');
 }
 
-function deleteCompraTC(id) {
+function deleteCompra(id) {
   if (!confirm('¿Eliminar esta compra?')) return;
   tarjetasData.compras = (tarjetasData.compras || []).filter(c => c.id !== id);
-  saveTarjetasLocal(); renderTarjetas(); toast('Eliminado', '#888');
+  saveTarjetasLocal();
+  renderTarjetas();
+  toast('Compra eliminada', 'var(--danger)');
 }
 
-// ══════════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════════
-function toast(msg, bg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.background = bg || '#333';
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-// ══════════════════════════════════════════════
-// LOGIN
-// ══════════════════════════════════════════════
-const VALID_USERS = { 'pori':'poritos2026', 'roci':'poritos2026', 'admin':'poritos2026' };
-
-function togglePassVisibility() {
-  const inp = document.getElementById('login-pass');
-  const btn = document.getElementById('toggle-pass-btn');
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
-}
-
-function doLogin() {
-  const user = document.getElementById('login-user').value.trim().toLowerCase();
-  const pass = document.getElementById('login-pass').value;
-  const remember = document.getElementById('login-remember').checked;
-  const errEl = document.getElementById('login-error');
-  if (!user || !pass) { errEl.textContent = 'Completa usuario y contraseña'; return; }
-  if (VALID_USERS[user] && VALID_USERS[user] === pass) {
-    if (remember) localStorage.setItem('poritos_auth', JSON.stringify({user, ts: Date.now()}));
-    else sessionStorage.setItem('poritos_auth', JSON.stringify({user, ts: Date.now()}));
-    document.getElementById('login-screen').classList.add('hidden');
-    errEl.textContent = '';
-  } else {
-    errEl.textContent = 'Usuario o contraseña incorrectos';
-    document.getElementById('login-pass').value = '';
-  }
-}
-
-function checkAuth() {
-  const stored = localStorage.getItem('poritos_auth') || sessionStorage.getItem('poritos_auth');
-  if (stored) {
-    try {
-      const data = JSON.parse(stored);
-      if (data.user && VALID_USERS[data.user]) { document.getElementById('login-screen').classList.add('hidden'); return true; }
-    } catch(e) {}
-  }
-  return false;
-}
-
-function logout() {
-  localStorage.removeItem('poritos_auth');
-  sessionStorage.removeItem('poritos_auth');
-  location.reload();
-}
-
-checkAuth();
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const reg = await navigator.serviceWorker.register('service-worker.js');
-      reg.addEventListener('updatefound', () => {
-        const newSW = reg.installing;
-        newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            showUpdateBanner(newSW);
-          }
-        });
-      });
-    } catch(e) {}
-  });
-}
-
-function showUpdateBanner(newSW) {
-  const banner = document.createElement('div');
-  banner.id = 'update-banner';
-  banner.style.cssText = `
-    position:fixed; bottom:0; left:0; right:0; z-index:99999;
-    background:#1A1714; color:#fff;
-    padding:14px 20px; display:flex; align-items:center; justify-content:space-between;
-    gap:12px; box-shadow:0 -4px 20px rgba(0,0,0,0.3);
-    font-family:'DM Sans',sans-serif; font-size:14px;
-  `;
-  banner.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:20px">🆕</span>
-      <div>
-        <div style="font-weight:600">Hay una nueva versión disponible</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px">Toca Actualizar para ver los últimos cambios</div>
-      </div>
-    </div>
-    <button onclick="applyUpdate()" style="
-      padding:9px 18px; background:#6EBF8B; color:#fff; border:none;
-      border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
-      font-family:'DM Sans',sans-serif; white-space:nowrap;
-    ">Actualizar</button>
-  `;
-  document.body.appendChild(banner);
-  window._pendingSW = newSW;
-}
-
-function applyUpdate() {
-  if (window._pendingSW) {
-    window._pendingSW.postMessage({ type: 'SKIP_WAITING' });
-    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
-  }
-}
 </script>
 </body>
 </html>
