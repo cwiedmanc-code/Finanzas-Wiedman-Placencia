@@ -393,7 +393,7 @@ html { overflow-x: hidden; }
 </head>
 <body>
 
-<div id="login-screen">
+<div id="login-screen" style="display:flex">
   <div class="login-box">
     <div class="login-title">Finanzas Poritos</div>
     <div class="login-sub">Inicia sesión</div>
@@ -1107,9 +1107,55 @@ let localMeta = JSON.parse(localStorage.getItem('poritos_meta') || JSON.stringif
 }));
 
 // ══════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════
+const USERS = { pori: 'poritos2026', roci: 'poritos2026', admin: 'poritos2026' };
+
+function doLogin() {
+  const user = (document.getElementById('login-user').value || '').trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value;
+  const remember = document.getElementById('login-remember').checked;
+  const errEl = document.getElementById('login-error');
+
+  if (!USERS[user] || USERS[user] !== pass) {
+    errEl.textContent = 'Usuario o contraseña incorrectos';
+    document.getElementById('login-pass').value = '';
+    return;
+  }
+  errEl.textContent = '';
+  if (remember) {
+    localStorage.setItem('poritos_auth', JSON.stringify({ user, ts: Date.now() }));
+  }
+  document.getElementById('login-screen').classList.add('hidden');
+}
+
+function togglePassVisibility() {
+  const inp = document.getElementById('login-pass');
+  const btn = document.getElementById('toggle-pass-btn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function logout() {
+  localStorage.removeItem('poritos_auth');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
 window.addEventListener('load', () => {
+  // Verificar sesión guardada
+  const auth = JSON.parse(localStorage.getItem('poritos_auth') || 'null');
+  if (!auth || !USERS[auth.user]) {
+    document.getElementById('login-screen').classList.remove('hidden');
+  } else {
+    document.getElementById('login-screen').classList.add('hidden');
+  }
+
   initDates();
   buildQuickCats();
   checkConnection();
