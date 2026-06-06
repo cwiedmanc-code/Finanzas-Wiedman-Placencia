@@ -242,6 +242,7 @@ html { overflow-x: hidden; }
 .tc-card-logo { position: absolute; top: 18px; right: 20px; background: rgba(255,255,255,0.12); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
 .tc-cupo-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; margin-top: 6px; width: 100%; }
 .tc-cupo-fill { height: 100%; background: rgba(255,255,255,0.75); border-radius: 20px; transition: width 0.4s; }
+.tc-card-row { display:flex; justify-content:space-between; align-items:flex-end; margin-top:12px; gap:8px; }
 .tc-compra-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; transition: background 0.1s; }
 .tc-compra-item:hover { background: var(--surface2); }
 .tc-compra-dot { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
@@ -302,6 +303,18 @@ html { overflow-x: hidden; }
 
   /* ── TC móvil ── */
   .tc-card-visual { padding: 16px 16px 48px; }
+  .tc-card-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .tc-card-info { text-align: left !important; }
+  /* ── Patrimonio móvil ── */
+  .patrimonio-item { gap: 8px; padding: 10px 8px; flex-wrap: wrap; }
+  .pat-info { width: calc(100% - 44px); min-width: 0; }
+  .pat-detail { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pat-name { font-size: 13px; }
+  .pat-value { flex: 0 0 100%; display:flex; flex-direction:row; align-items:center; gap:10px; padding-left: 44px; text-align:left; }
+  .pat-amount { font-size: 14px; }
+  .pat-sub { font-size: 10px; }
+  .deuda-progress { margin-top: 4px; }
+  .deuda-progress > div:first-child { flex-wrap: wrap; }
   /* Items de compras: 2 filas — [icono|info] y luego [precios|botones] */
   .tc-compra-item { flex-wrap: wrap; gap: 4px 8px; padding: 10px; }
   .tc-compra-dot { flex-shrink: 0; }
@@ -2249,17 +2262,26 @@ function saveTarjetasLocal() {
 
 // Cuántas cuotas han pasado. Si hay fecha_primera_cuota usa esa como base; si no, usa fecha_compra.
 function calcCuotaActual(c) {
-  // El avance de cuotas depende de pagos reales registrados en pagosTC.
-  // Solo se cuenta 1 cuota por mes en que se haya registrado un pago para esa tarjeta.
   const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
   if (!firstMes) return 0;
 
-  const mesesPagados = new Set(
-    (tarjetasData.pagosTC || [])
-      .filter(p => p.tarjeta_id === c.tarjeta_id && p.fecha && p.fecha.substring(0, 7) >= firstMes)
-      .map(p => p.fecha.substring(0, 7))
-  );
-  return Math.min(mesesPagados.size, c.cuotas_totales);
+  const pagosParaTarjeta = (tarjetasData.pagosTC || []).filter(p => p.tarjeta_id === c.tarjeta_id);
+
+  if (pagosParaTarjeta.length > 0) {
+    // Con pagos registrados: contar meses distintos con pago desde firstMes
+    const mesesPagados = new Set(
+      pagosParaTarjeta
+        .filter(p => p.fecha && p.fecha.substring(0, 7) >= firstMes)
+        .map(p => p.fecha.substring(0, 7))
+    );
+    return Math.min(mesesPagados.size, c.cuotas_totales);
+  } else {
+    // Sin pagos registrados: avance automático por meses transcurridos desde firstMes
+    const today = new Date();
+    const [fy, fm] = firstMes.split('-').map(Number);
+    const mesesTranscurridos = Math.max(0, (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1)));
+    return Math.min(mesesTranscurridos, c.cuotas_totales);
+  }
 }
 
 // Indica si la compra tiene cuotas vencidas sin pago registrado
@@ -2341,14 +2363,14 @@ function renderTarjetas() {
           <div style="font-size:16px;font-weight:700;letter-spacing:0.02em">${tc.nombre}</div>
           <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.06em">${tc.banco || ''}${tc.quien ? ' · ' + tc.quien : ''}</div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:12px">
-          <div>
+        <div class="tc-card-row">
+          <div style="min-width:0;flex:1">
             <div style="font-size:9px;opacity:0.55;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Cupo disponible</div>
-            <div style="font-size:24px;font-weight:700;font-family:var(--mono);letter-spacing:-0.5px">$${fmt(disponible)}</div>
-            <div style="font-size:11px;opacity:0.6;margin-top:2px">Usado: $${fmt(usado)} de $${fmt(limite)}</div>
+            <div style="font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-0.5px">$${fmt(disponible)}</div>
+            <div style="font-size:11px;opacity:0.6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Usado: $${fmt(usado)} de $${fmt(limite)}</div>
             <div class="tc-cupo-bar"><div class="tc-cupo-fill" style="width:${usoPct}%;background:${warnColor}"></div></div>
           </div>
-          <div style="text-align:right;font-size:11px;opacity:0.65;line-height:1.8">
+          <div class="tc-card-info" style="text-align:right;font-size:11px;opacity:0.65;line-height:1.8;flex-shrink:0">
             <div>Corte: <strong>día ${tc.fecha_corte || '—'}</strong></div>
             <div>Pago: <strong>día ${tc.fecha_pago || '—'}</strong></div>
             <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:1">$${fmt(cargo)}/mes</div>
