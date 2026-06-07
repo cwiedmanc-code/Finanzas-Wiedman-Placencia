@@ -2325,47 +2325,60 @@ function saveTarjetasLocal() {
   }
 }
 
-// Cuántas cuotas han pasado. Si hay fecha_primera_cuota usa esa como base; si no, usa fecha_compra.
-function calcCuotaActual(c) {
-  const cuotasTot = parseInt(c.cuotas_totales) || 0;
-  const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
-  if (!firstMes || !/^\d{4}-\d{2}/.test(firstMes)) return 0;
-
-  const pagosParaTarjeta = (tarjetasData.pagosTC || []).filter(p => p.tarjeta_id === c.tarjeta_id);
-
-  if (pagosParaTarjeta.length > 0) {
-    // Con pagos registrados: contar meses distintos con pago desde firstMes
-    const mesesPagados = new Set(
-      pagosParaTarjeta
-        .filter(p => p.fecha && p.fecha.substring(0, 7) >= firstMes)
-        .map(p => p.fecha.substring(0, 7))
-    );
-    return Math.min(mesesPagados.size, cuotasTot);
-  } else {
-    // Sin pagos registrados: avance automático por meses transcurridos desde firstMes
-    const today = new Date();
-    const [fy, fm] = firstMes.split('-').map(Number);
-    const mesesTranscurridos = Math.max(0, (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1)));
-    return Math.min(mesesTranscurridos, cuotasTot);
-  }
+// Mes de la primera cuota en formato YYYY-MM (cae a fecha_compra si no hay)
+function primerMes(c) {
+  const fm = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
+  return (fm && /^\d{4}-\d{2}/.test(fm)) ? fm.substring(0, 7) : null;
 }
 
-// Indica si la compra tiene cuotas vencidas sin pago registrado
-function calcCuotasAtrasadas(c) {
-  const cuotasTot = parseInt(c.cuotas_totales) || 0;
-  const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
-  if (!firstMes || !/^\d{4}-\d{2}/.test(firstMes)) return 0;
+// Meses transcurridos desde la primera cuota hasta hoy (0 = mes de la primera cuota; <0 = aún no empieza)
+function mesesDesdePrimera(c) {
+  const firstMes = primerMes(c);
+  if (!firstMes) return null;
   const today = new Date();
   const [fy, fm] = firstMes.split('-').map(Number);
-  const esperadas = Math.min(
-    Math.max(0, (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1)) + 1),
-    cuotasTot
-  );
-  const pagadas = calcCuotaActual(c);
-  return Math.max(0, esperadas - pagadas);
+  return (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1));
 }
+
+// CUOTAS PAGADAS (modelo "solo con pago registrado"): nº de meses distintos con pago
+// registrado para esa tarjeta desde la primera cuota. Sin pagos → 0 (la deuda refleja
+// la compra completa hasta que se registre el pago del mes con "Pagar TC").
+function calcCuotaActual(c) {
+  const cuotasTot = parseInt(c.cuotas_totales) || 0;
+  const firstMes  = primerMes(c);
+  if (!firstMes) return 0;
+  const mesesPagados = new Set(
+    (tarjetasData.pagosTC || [])
+      .filter(p => p.tarjeta_id === c.tarjeta_id && p.fecha && p.fecha.substring(0, 7) >= firstMes)
+      .map(p => p.fecha.substring(0, 7))
+  );
+  return Math.min(mesesPagados.size, cuotasTot);
+}
+
+// Cuotas que el calendario ya debió facturar (incluye la de este mes). Solo para estado/atraso.
+function cuotasFacturadas(c) {
+  const cuotasTot = parseInt(c.cuotas_totales) || 0;
+  if (primerMes(c) === null) return 0;
+  return Math.min(Math.max(0, mesesDesdePrimera(c) + 1), cuotasTot);
+}
+
+// Cuotas facturadas según calendario pero sin pago registrado = atrasadas.
+function calcCuotasAtrasadas(c) {
+  return Math.max(0, cuotasFacturadas(c) - calcCuotaActual(c));
+}
+
 function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - calcCuotaActual(c)); }
 function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.monto_por_cuota) || 0); }
+
+// Cuota que se factura ESTE mes para una compra: solo si el mes actual cae dentro del
+// calendario [primera cuota … última cuota]. Respeta fecha_primera_cuota (cuotas futuras = 0).
+function cuotaDelMes(c) {
+  const cuotasTot = parseInt(c.cuotas_totales) || 0;
+  if (primerMes(c) === null) return 0;
+  const elapsed = mesesDesdePrimera(c);
+  if (elapsed < 0 || elapsed > cuotasTot - 1) return 0;   // aún no empieza o ya terminó
+  return parseFloat(c.monto_por_cuota) || 0;
+}
 
 function calcTotalUsado(tarjeta_id) {
   return (tarjetasData.compras || [])
@@ -2374,8 +2387,8 @@ function calcTotalUsado(tarjeta_id) {
 }
 function calcCargoPendiente(tarjeta_id) {
   return (tarjetasData.compras || [])
-    .filter(c => c.tarjeta_id === tarjeta_id && calcCuotasRestantes(c) > 0)
-    .reduce((s, c) => s + c.monto_por_cuota, 0);
+    .filter(c => c.tarjeta_id === tarjeta_id)
+    .reduce((s, c) => s + cuotaDelMes(c), 0);
 }
 
 function renderTarjetas() {
