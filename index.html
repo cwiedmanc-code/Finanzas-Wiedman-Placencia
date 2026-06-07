@@ -951,7 +951,7 @@ html { overflow-x: hidden; }
         <div class="metric" style="border-top-color:var(--blue)"><div class="m-label">Cupo total</div><div class="m-value m-blue" id="tc-m-limite">—</div><div class="m-sub">Suma de límites</div></div>
         <div class="metric" style="border-top-color:var(--danger)"><div class="m-label">Deuda pendiente</div><div class="m-value m-neg" id="tc-m-usado">—</div><div class="m-sub">Cuotas por pagar</div></div>
         <div class="metric" style="border-top-color:#1A7A4A"><div class="m-label">Cupo disponible</div><div class="m-value m-pos" id="tc-m-disponible">—</div><div class="m-sub">Límite − deuda</div></div>
-        <div class="metric" style="border-top-color:var(--danger)"><div class="m-label">Cargo este mes</div><div class="m-value m-neg" id="tc-m-cargo">—</div><div class="m-sub">Cuotas del mes actual</div></div>
+        <div class="metric" style="border-top-color:var(--danger)"><div class="m-label">Cargo este mes</div><div class="m-value m-neg" id="tc-m-cargo">—</div><div class="m-sub">Pendiente de pagar este mes</div></div>
       </div>
 
       <div class="grid-2">
@@ -2355,16 +2355,25 @@ function calcCuotaActual(c) {
   return Math.min(mesesPagados.size, cuotasTot);
 }
 
-// Cuotas que el calendario ya debió facturar (incluye la de este mes). Solo para estado/atraso.
-function cuotasFacturadas(c) {
+// Cuotas EXIGIBLES: aquellas cuyo día de pago ya venció (se esperan pagadas).
+// Los meses anteriores cuentan completos; el mes en curso solo si HOY ya pasó el
+// día de pago de la tarjeta. Así la cuota de este mes no se marca atrasada antes
+// de su vencimiento, y una compra cuya 1ª cuota es este mes no muestra atraso.
+function cuotasExigibles(c) {
   const cuotasTot = parseInt(c.cuotas_totales) || 0;
   if (primerMes(c) === null) return 0;
-  return Math.min(Math.max(0, mesesDesdePrimera(c) + 1), cuotasTot);
+  const elapsed = mesesDesdePrimera(c);
+  if (elapsed < 0) return 0;                       // aún no empieza
+  const tarjeta = (tarjetasData.tarjetas || []).find(t => t.id === c.tarjeta_id);
+  const diaPago = parseInt(tarjeta && tarjeta.fecha_pago) || 0;
+  const venceMesActual = diaPago > 0 ? new Date().getDate() > diaPago : false;
+  const exigibles = elapsed + (venceMesActual ? 1 : 0);
+  return Math.min(Math.max(0, exigibles), cuotasTot);
 }
 
-// Cuotas facturadas según calendario pero sin pago registrado = atrasadas.
+// Cuotas exigibles (ya vencidas) sin pago registrado = atrasadas.
 function calcCuotasAtrasadas(c) {
-  return Math.max(0, cuotasFacturadas(c) - calcCuotaActual(c));
+  return Math.max(0, cuotasExigibles(c) - calcCuotaActual(c));
 }
 
 function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - calcCuotaActual(c)); }
@@ -2385,10 +2394,22 @@ function calcTotalUsado(tarjeta_id) {
     .filter(c => c.tarjeta_id === tarjeta_id)
     .reduce((s, c) => s + (parseFloat(calcMontoRestante(c)) || 0), 0);
 }
+// Mes actual en formato YYYY-MM (hora local)
+function mesActualYM() {
+  const t = new Date();
+  return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0');
+}
+// Cargo PENDIENTE del mes = cuotas que se facturan este mes − pagos ya registrados este mes.
+// Así el número refleja lo que falta pagar en el mes (baja al registrar el pago).
 function calcCargoPendiente(tarjeta_id) {
-  return (tarjetasData.compras || [])
+  const cargoMes = (tarjetasData.compras || [])
     .filter(c => c.tarjeta_id === tarjeta_id)
     .reduce((s, c) => s + cuotaDelMes(c), 0);
+  const ym = mesActualYM();
+  const pagadoEsteMes = (tarjetasData.pagosTC || [])
+    .filter(p => p.tarjeta_id === tarjeta_id && p.fecha && p.fecha.substring(0, 7) === ym)
+    .reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+  return Math.max(0, cargoMes - pagadoEsteMes);
 }
 
 function renderTarjetas() {
@@ -2451,7 +2472,7 @@ function renderTarjetas() {
           <div class="tc-card-info" style="text-align:right;font-size:11px;opacity:0.65;line-height:1.8;flex-shrink:0">
             <div>Corte: <strong>día ${tc.fecha_corte || '—'}</strong></div>
             <div>Pago: <strong>día ${tc.fecha_pago || '—'}</strong></div>
-            <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:1">$${fmt(cargo)}/mes</div>
+            <div style="margin-top:4px;font-size:13px;font-weight:700;opacity:1">$${fmt(cargo)} <span style="font-size:9px;font-weight:400;opacity:0.7">pend. este mes</span></div>
           </div>
         </div>
         <button onclick="openModalTarjeta('${tc.id}')" title="Editar" style="position:absolute;bottom:10px;left:14px;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.7);font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer">✎ Editar</button>
@@ -2522,7 +2543,7 @@ function renderTarjetas() {
     return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:13px;font-weight:600">${t.nombre}</div>
-        <div style="font-size:13px;font-weight:700;font-family:var(--mono)">$${fmt(cargo)}/mes</div>
+        <div style="font-size:13px;font-weight:700;font-family:var(--mono)" title="Pendiente de pagar este mes">$${fmt(cargo)}</div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
         <span>Usado: $${fmt(usado)}</span>
