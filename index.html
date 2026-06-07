@@ -608,6 +608,10 @@ html { overflow-x: hidden; }
       <div class="field"><label>Tasa de interés anual (% — 0 si es sin interés)</label><input type="number" id="tc-compra-tasa" placeholder="0" min="0" step="0.1"></div>
     </div>
     <div class="form-row form-row-2">
+      <div class="field"><label>Cuotas ya pagadas <span style="font-weight:400;color:var(--text3)">(las que ya saldaste)</span></label><input type="number" id="tc-compra-pagadas" placeholder="0" min="0" value="0"></div>
+      <div class="field"></div>
+    </div>
+    <div class="form-row form-row-2">
       <div class="field"><label>Categoría</label>
         <select id="tc-compra-cat">
           <option>Hogar / Tecnología</option><option>Ropa / Moda</option><option>Viajes</option>
@@ -717,7 +721,7 @@ html { overflow-x: hidden; }
             <button class="active-gasto" onclick="setTipo('gasto',this)">Gasto</button>
             <button onclick="setTipo('ingreso',this)">Ingreso</button>
             <button onclick="setTipo('ahorro',this)">Ahorro</button>
-            <button onclick="setTipo('pago-tc',this)">Pago TC</button>
+            <button onclick="setTipo('pago-tc',this)">Abono TC</button>
           </div>
           <div id="sec-gasto">
             <div class="card-title">Categoría rápida</div>
@@ -781,7 +785,7 @@ html { overflow-x: hidden; }
           </div>
           <div id="sec-pago-tc" style="display:none">
             <div style="background:rgba(196,75,43,0.08);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5">
-              Registra el pago como <strong>gasto</strong> y actualiza el historial de la tarjeta seleccionada.
+              <strong>Abono manual</strong> (pago extraordinario o adelanto). Registra el monto como <strong>gasto</strong> y baja el "pendiente este mes", pero <strong>NO cierra cuotas</strong>. Para cerrar cuotas usa <strong>💳 Pagar mes</strong> o <strong>✓ pagar cuota</strong> en la sección Tarjetas.
             </div>
             <div class="form-row form-row-3">
               <div class="field"><label>Tarjeta</label>
@@ -796,7 +800,7 @@ html { overflow-x: hidden; }
               </div>
               <div class="field"><label>Descripción (opcional)</label><input type="text" id="ptc-desc" placeholder="Pago cuota mensual..."></div>
             </div>
-            <button class="btn btn-full" style="background:#C44B2B;color:#fff;border:none" onclick="submitPagoTC()">Registrar pago tarjeta</button>
+            <button class="btn btn-full" style="background:#C44B2B;color:#fff;border:none" onclick="submitPagoTC()">Registrar abono</button>
           </div>
         </div>
         <div class="card">
@@ -2343,16 +2347,13 @@ function mesesDesdePrimera(c) {
 // CUOTAS PAGADAS (modelo "solo con pago registrado"): nº de meses distintos con pago
 // registrado para esa tarjeta desde la primera cuota. Sin pagos → 0 (la deuda refleja
 // la compra completa hasta que se registre el pago del mes con "Pagar TC").
+// CUOTAS PAGADAS (modelo "manual", jun-2026): número de cuotas que el usuario marca
+// como pagadas en la compra (campo cuotas_pagadas). Tú lo controlas con el botón
+// "Saldar cuota" o editando la compra. Capado al total de cuotas.
 function calcCuotaActual(c) {
   const cuotasTot = parseInt(c.cuotas_totales) || 0;
-  const firstMes  = primerMes(c);
-  if (!firstMes) return 0;
-  const mesesPagados = new Set(
-    (tarjetasData.pagosTC || [])
-      .filter(p => p.tarjeta_id === c.tarjeta_id && p.fecha && p.fecha.substring(0, 7) >= firstMes)
-      .map(p => p.fecha.substring(0, 7))
-  );
-  return Math.min(mesesPagados.size, cuotasTot);
+  const pagadas   = parseInt(c.cuotas_pagadas) || 0;
+  return Math.min(Math.max(0, pagadas), cuotasTot);
 }
 
 // Cuotas EXIGIBLES: aquellas cuyo día de pago ya venció (se esperan pagadas).
@@ -2376,11 +2377,10 @@ function calcCuotasAtrasadas(c) {
   return Math.max(0, cuotasExigibles(c) - calcCuotaActual(c));
 }
 
-// CUOTAS RESTANTES / USADO (modelo "por calendario", jun-2026): una compra se salda
-// según las cuotas ya transcurridas y vencidas (cuotasExigibles), NO según pagos a nivel
-// tarjeta. Así una compra nueva de 1 cuota no se marca "Finalizada" solo porque la tarjeta
-// ya tuvo un pago este mes, y el "usado" refleja el saldo pendiente igual que el banco.
-function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - cuotasExigibles(c)); }
+// CUOTAS RESTANTES / USADO (modelo "manual", jun-2026): restantes = total − cuotas pagadas
+// (marcadas por el usuario). El "usado" refleja el saldo pendiente real y baja solo cuando
+// marcas una cuota como pagada → así puedes cuadrarlo exacto con el banco.
+function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - calcCuotaActual(c)); }
 function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.monto_por_cuota) || 0); }
 
 // Cuota que se factura ESTE mes para una compra: solo si el mes actual cae dentro del
@@ -2481,6 +2481,7 @@ function renderTarjetas() {
         </div>
         <button onclick="openModalTarjeta('${tc.id}')" title="Editar" style="position:absolute;bottom:10px;left:14px;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.7);font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer">✎ Editar</button>
         <button onclick="deleteTCCard('${tc.id}')" title="Eliminar tarjeta" style="position:absolute;bottom:10px;left:80px;background:rgba(255,100,100,0.18);border:none;color:rgba(255,180,180,0.9);font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer">✕</button>
+        <button onclick="pagarMesTC('${tc.id}')" title="Pagar la(s) cuota(s) de este mes y registrarlo en el flujo" style="position:absolute;bottom:10px;right:14px;background:var(--accent);border:none;color:#0C1426;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer">💳 Pagar mes</button>
       </div>`;
   }
 
@@ -2491,9 +2492,9 @@ function renderTarjetas() {
 
   const renderCompra = (c, opaque) => {
     const cuotasTot    = parseInt(c.cuotas_totales) || 0;
-    const avance       = cuotasExigibles(c);            // cuotas ya transcurridas (calendario)
+    const avance       = calcCuotaActual(c);            // cuotas pagadas (manual)
     const restantes    = calcCuotasRestantes(c);
-    const atrasadas    = calcCuotasAtrasadas(c);        // exigibles sin pago real → ⚠
+    const atrasadas    = calcCuotasAtrasadas(c);        // esperadas por calendario sin pagar → ⚠
     const pct          = cuotasTot > 0 ? Math.round(avance / cuotasTot * 100) : 100;
     const terminada    = restantes === 0;
     const icon         = TC_CAT_ICONS[c.categoria] || '🛍️';
@@ -2521,6 +2522,7 @@ function renderTarjetas() {
             <div class="tc-compra-total">Total $${fmt(c.monto_total)}</div>
           </div>
           <div style="display:flex;gap:4px;margin-top:6px">
+            ${terminada ? '' : `<button onclick="saldarCuota('${c.id}')" title="Marcar una cuota como pagada" style="background:none;border:1px solid var(--accent);border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:var(--accent)">✓ pagar cuota</button>`}
             <button onclick="openModalCompraTc('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:var(--text2)">✎</button>
             <button onclick="deleteCompra('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:var(--danger)">✕</button>
           </div>
@@ -2694,6 +2696,7 @@ function openModalCompraTc(editId) {
    'tc-compra-cuota-monto','tc-compra-tasa','tc-compra-primera-cuota'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  document.getElementById('tc-compra-pagadas').value = '0';
   document.getElementById('tc-compra-edit-id').value = '';
   document.getElementById('modal-compra-tc-title').textContent = 'Registrar compra en cuotas';
 
@@ -2721,6 +2724,7 @@ function openModalCompraTc(editId) {
       document.getElementById('tc-compra-cat').value             = c.categoria || 'Otro';
       document.getElementById('tc-compra-quien').value           = c.quien || 'Pori';
       document.getElementById('tc-compra-primera-cuota').value   = c.fecha_primera_cuota || '';
+      document.getElementById('tc-compra-pagadas').value         = (c.cuotas_pagadas != null ? c.cuotas_pagadas : 0);
     }
   }
   document.getElementById('modal-compra-tc').classList.remove('hidden');
@@ -2755,6 +2759,7 @@ function saveCompraTc() {
   const cat         = document.getElementById('tc-compra-cat').value;
   const quien       = document.getElementById('tc-compra-quien').value;
   const primera     = document.getElementById('tc-compra-primera-cuota').value;
+  const pagadas     = Math.min(Math.max(0, parseInt(document.getElementById('tc-compra-pagadas').value) || 0), cuotas);
 
   if (!tarjeta_id)  return toast('Selecciona una tarjeta', 'var(--danger)');
   if (!monto_total) return toast('Ingresa el monto total', 'var(--danger)');
@@ -2764,7 +2769,8 @@ function saveCompraTc() {
     tarjeta_id, fecha_compra: fecha, tienda, descripcion: desc,
     monto_total, cuotas_totales: cuotas, monto_por_cuota: monto_cuota,
     tasa_interes: tasa, categoria: cat, quien,
-    fecha_primera_cuota: primera || (fecha ? fecha.substring(0, 7) : '')
+    fecha_primera_cuota: primera || (fecha ? fecha.substring(0, 7) : ''),
+    cuotas_pagadas: pagadas
   };
 
   if (!tarjetasData.compras) tarjetasData.compras = [];
@@ -2786,6 +2792,54 @@ function deleteCompra(id) {
   saveTarjetasLocal();
   renderTarjetas();
   toast('Compra eliminada', 'var(--danger)');
+}
+
+// Helper: registra el pago de cuota(s) como gasto "Pago Tarjeta" en el historial
+// (afecta el flujo) y lo agrega al historial de pagos de la tarjeta. NO toca cuotas;
+// quien llama ya actualizó c.cuotas_pagadas.
+function _registrarPagoTCRecord(tarjetaId, monto, desc) {
+  const h = new Date();
+  const fecha = h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
+  const tj = (tarjetasData.tarjetas || []).find(t => t.id === tarjetaId);
+  const quien = (tj && tj.quien) ? tj.quien : 'Pori';
+  const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:'Pago Tarjeta', Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
+  localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:'Pago Tarjeta',descripcion:desc,monto,quien,recurrente:false}});
+  if (!tarjetasData.pagosTC) tarjetasData.pagosTC = [];
+  tarjetasData.pagosTC.unshift({ id:'PTC'+Date.now(), tarjeta_id:tarjetaId, monto, fecha, descripcion:desc, quien });
+}
+
+// Marca UNA cuota más como pagada en la compra: baja el usado Y registra el gasto en el flujo.
+function saldarCuota(id) {
+  const c = (tarjetasData.compras || []).find(x => x.id === id);
+  if (!c) return;
+  const tot = parseInt(c.cuotas_totales) || 0;
+  const pag = parseInt(c.cuotas_pagadas) || 0;
+  if (pag >= tot) return toast('Ya está toda pagada', 'var(--text3)');
+  const monto = parseFloat(c.monto_por_cuota) || 0;
+  if (!confirm(`Pagar 1 cuota de "${c.descripcion || 'compra'}" por $${fmt(monto)}.\nSe registrará como gasto "Pago Tarjeta" en el historial.`)) return;
+  c.cuotas_pagadas = pag + 1;
+  _registrarPagoTCRecord(c.tarjeta_id, monto, `Pago cuota ${c.cuotas_pagadas}/${tot} · ${c.descripcion || 'compra'}`);
+  saveTarjetasLocal();
+  renderDashboard(); renderTodayList(); renderTarjetas();
+  toast(`Cuota saldada · ${c.cuotas_pagadas}/${tot}`, '#1D9E75');
+}
+
+// Paga el mes completo de una tarjeta: cierra UNA cuota de cada compra ya iniciada con
+// saldo pendiente y registra UN gasto por el total (como la transferencia real del mes).
+function pagarMesTC(tarjetaId) {
+  const compras = (tarjetasData.compras || []).filter(c =>
+    c.tarjeta_id === tarjetaId && mesesDesdePrimera(c) >= 0 && calcCuotasRestantes(c) > 0);
+  if (!compras.length) return toast('No hay cuotas pendientes este mes', 'var(--text3)');
+  const total = compras.reduce((s, c) => s + (parseFloat(c.monto_por_cuota) || 0), 0);
+  const tj = (tarjetasData.tarjetas || []).find(t => t.id === tarjetaId);
+  const nombre = tj ? tj.nombre : 'Tarjeta';
+  if (!confirm(`Pagar el mes de ${nombre}: ${compras.length} cuota(s) por $${fmt(total)}.\nSe cierra una cuota de cada compra y se registra UN gasto "Pago Tarjeta".`)) return;
+  compras.forEach(c => { c.cuotas_pagadas = (parseInt(c.cuotas_pagadas) || 0) + 1; });
+  _registrarPagoTCRecord(tarjetaId, total, `Pago mes ${nombre} · ${compras.length} cuota(s)`);
+  saveTarjetasLocal();
+  renderDashboard(); renderTodayList(); renderTarjetas();
+  toast(`Mes pagado · $${fmt(total)}`, '#1D9E75');
 }
 
 </script>
