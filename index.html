@@ -2383,6 +2383,21 @@ function calcCuotasAtrasadas(c) {
 function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - calcCuotaActual(c)); }
 function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.monto_por_cuota) || 0); }
 
+// Semáforo de la cuota del MES EN CURSO:
+//  verde = la cuota de este mes ya está pagada
+//  rojo  = corresponde pagar este mes y aún no se paga (incluye atrasadas)
+//  gris  = no corresponde pagar este mes (aún no empieza o ya está finalizada)
+function estadoMesCompra(c) {
+  const tot = parseInt(c.cuotas_totales) || 0;
+  const pagadas = calcCuotaActual(c);
+  if (tot - pagadas <= 0) return { color:'#9AA0A6', label:'Finalizada · nada que pagar', key:'gris' };
+  const e = mesesDesdePrimera(c);
+  if (e === null || e < 0) return { color:'#9AA0A6', label:'No toca este mes', key:'gris' };
+  const idxMes = Math.min(e, tot - 1);              // cuota (0-based) que cae este mes
+  if (pagadas > idxMes) return { color:'#1D9E75', label:'Pagada este mes', key:'verde' };
+  return { color:'#E24B4A', label:'Pendiente este mes', key:'rojo' };
+}
+
 // Cuota que se factura ESTE mes para una compra: solo si el mes actual cae dentro del
 // calendario [primera cuota … última cuota]. Respeta fecha_primera_cuota (cuotas futuras = 0).
 function cuotaDelMes(c) {
@@ -2507,14 +2522,19 @@ function renderTarjetas() {
         ? `⚠ ${atrasadas} cuota${atrasadas > 1 ? 's' : ''} sin pago · ${restantes} restante${restantes !== 1 ? 's' : ''}`
         : `Cuota ${avance} de ${cuotasTot} · ${restantes} restante${restantes !== 1 ? 's' : ''}`;
     const estadoColor  = atrasadas > 0 ? '#E24B4A' : 'var(--text3)';
+    const mes          = estadoMesCompra(c);        // semáforo del mes en curso
     return `
-      <div class="tc-compra-item${opaque ? ' opaque' : ''}" style="opacity:${opaque ? 0.45 : 1}">
+      <div class="tc-compra-item${opaque ? ' opaque' : ''}" style="opacity:${opaque ? 0.45 : 1};border-left:5px solid ${mes.color}">
         <div class="tc-compra-icon">${icon}</div>
         <div class="tc-compra-info">
           <div class="tc-compra-name">${c.descripcion || 'Sin descripción'}${cardName && tcTabActual === 'todas' ? ' <span style="opacity:0.5;font-size:11px">· ' + cardName + '</span>' : ''}</div>
           <div class="tc-compra-detail">${c.tienda || ''}${c.tienda && c.categoria ? ' · ' : ''}${c.categoria || ''}${c.quien ? ' · ' + c.quien : ''}</div>
           <div class="tc-compra-bar"><div class="tc-compra-fill" style="width:${pct}%;background:${barColor}"></div></div>
           <div class="tc-compra-estado" style="color:${estadoColor}">${estadoTxt}</div>
+          <div style="margin-top:5px;display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:${mes.color}">
+            <span style="width:14px;height:14px;border-radius:3px;background:${mes.color};display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;line-height:1">${mes.key === 'verde' ? '✓' : mes.key === 'rojo' ? '!' : ''}</span>
+            ${mes.label}
+          </div>
         </div>
         <div class="tc-compra-right">
           <div>
