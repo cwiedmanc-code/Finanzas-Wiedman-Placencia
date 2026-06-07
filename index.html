@@ -2324,6 +2324,7 @@ function saveTarjetasLocal() {
 
 // Cuántas cuotas han pasado. Si hay fecha_primera_cuota usa esa como base; si no, usa fecha_compra.
 function calcCuotaActual(c) {
+  const cuotasTot = parseInt(c.cuotas_totales) || 0;
   const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
   if (!firstMes || !/^\d{4}-\d{2}/.test(firstMes)) return 0;
 
@@ -2336,27 +2337,26 @@ function calcCuotaActual(c) {
         .filter(p => p.fecha && p.fecha.substring(0, 7) >= firstMes)
         .map(p => p.fecha.substring(0, 7))
     );
-    return Math.min(mesesPagados.size, c.cuotas_totales);
+    return Math.min(mesesPagados.size, cuotasTot);
   } else {
     // Sin pagos registrados: avance automático por meses transcurridos desde firstMes
     const today = new Date();
     const [fy, fm] = firstMes.split('-').map(Number);
     const mesesTranscurridos = Math.max(0, (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1)));
-    return Math.min(mesesTranscurridos, c.cuotas_totales);
+    return Math.min(mesesTranscurridos, cuotasTot);
   }
 }
 
 // Indica si la compra tiene cuotas vencidas sin pago registrado
 function calcCuotasAtrasadas(c) {
+  const cuotasTot = parseInt(c.cuotas_totales) || 0;
   const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
-  if (!firstMes) return 0;
+  if (!firstMes || !/^\d{4}-\d{2}/.test(firstMes)) return 0;
   const today = new Date();
-  const todayMes = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-  // Cuotas esperadas hasta hoy según tiempo
   const [fy, fm] = firstMes.split('-').map(Number);
   const esperadas = Math.min(
     Math.max(0, (today.getFullYear() - fy) * 12 + (today.getMonth() - (fm - 1)) + 1),
-    c.cuotas_totales
+    cuotasTot
   );
   const pagadas = calcCuotaActual(c);
   return Math.max(0, esperadas - pagadas);
@@ -2367,7 +2367,7 @@ function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.
 function calcTotalUsado(tarjeta_id) {
   return (tarjetasData.compras || [])
     .filter(c => c.tarjeta_id === tarjeta_id)
-    .reduce((s, c) => s + calcMontoRestante(c), 0);
+    .reduce((s, c) => s + (parseFloat(calcMontoRestante(c)) || 0), 0);
 }
 function calcCargoPendiente(tarjeta_id) {
   return (tarjetasData.compras || [])
