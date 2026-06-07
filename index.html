@@ -2376,7 +2376,11 @@ function calcCuotasAtrasadas(c) {
   return Math.max(0, cuotasExigibles(c) - calcCuotaActual(c));
 }
 
-function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - calcCuotaActual(c)); }
+// CUOTAS RESTANTES / USADO (modelo "por calendario", jun-2026): una compra se salda
+// según las cuotas ya transcurridas y vencidas (cuotasExigibles), NO según pagos a nivel
+// tarjeta. Así una compra nueva de 1 cuota no se marca "Finalizada" solo porque la tarjeta
+// ya tuvo un pago este mes, y el "usado" refleja el saldo pendiente igual que el banco.
+function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - cuotasExigibles(c)); }
 function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.monto_por_cuota) || 0); }
 
 // Cuota que se factura ESTE mes para una compra: solo si el mes actual cae dentro del
@@ -2486,10 +2490,11 @@ function renderTarjetas() {
   const finalizadas = filtro.filter(c => calcCuotasRestantes(c) === 0);
 
   const renderCompra = (c, opaque) => {
-    const cuotaActual  = calcCuotaActual(c);
+    const cuotasTot    = parseInt(c.cuotas_totales) || 0;
+    const avance       = cuotasExigibles(c);            // cuotas ya transcurridas (calendario)
     const restantes    = calcCuotasRestantes(c);
-    const atrasadas    = calcCuotasAtrasadas(c);
-    const pct          = c.cuotas_totales > 0 ? Math.round(cuotaActual / c.cuotas_totales * 100) : 100;
+    const atrasadas    = calcCuotasAtrasadas(c);        // exigibles sin pago real → ⚠
+    const pct          = cuotasTot > 0 ? Math.round(avance / cuotasTot * 100) : 100;
     const terminada    = restantes === 0;
     const icon         = TC_CAT_ICONS[c.categoria] || '🛍️';
     const tcCard       = tarjetas.find(t => t.id === c.tarjeta_id);
@@ -2499,7 +2504,7 @@ function renderTarjetas() {
       ? '✓ Finalizada'
       : atrasadas > 0
         ? `⚠ ${atrasadas} cuota${atrasadas > 1 ? 's' : ''} sin pago · ${restantes} restante${restantes !== 1 ? 's' : ''}`
-        : `Cuota ${cuotaActual} de ${c.cuotas_totales} · ${restantes} restante${restantes !== 1 ? 's' : ''}`;
+        : `Cuota ${avance} de ${cuotasTot} · ${restantes} restante${restantes !== 1 ? 's' : ''}`;
     const estadoColor  = atrasadas > 0 ? '#E24B4A' : 'var(--text3)';
     return `
       <div class="tc-compra-item${opaque ? ' opaque' : ''}" style="opacity:${opaque ? 0.45 : 1}">
