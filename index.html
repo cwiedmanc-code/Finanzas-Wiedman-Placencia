@@ -2272,15 +2272,26 @@ Sé breve pero muy preciso. Usa viñetas cuando corresponda. Máximo 280 palabra
 // ══════════════════════════════════════════════
 
 async function loadTarjetas() {
+  const local = JSON.parse(localStorage.getItem('poritos_tarjetas') || '{}');
+  const localCompras  = local.compras  || [];
+  const localTarjetas = local.tarjetas || [];
+  const localPagos    = local.pagosTC  || [];
+
   try {
     if (SCRIPT_URL) {
       const d = await apiGet({ action: 'getTarjetas' });
-      if (d && (d.tarjetas || d.compras)) {
-        // Si Sheets devuelve null para fecha_primera_cuota (hoja sin columna 12 actualizada),
-        // preservar el valor que estaba en localStorage para no perder la configuración.
-        const local = JSON.parse(localStorage.getItem('poritos_tarjetas') || '{}');
-        const localCompras = local.compras || [];
-        if (d.compras && localCompras.length) {
+      if (d && !d.error) {
+        // Merge tarjetas: preferir Sheets; añadir locales que Sheets no tiene
+        const sheetsTIds = new Set((d.tarjetas || []).map(t => t.id));
+        d.tarjetas = [...(d.tarjetas || []), ...localTarjetas.filter(t => !sheetsTIds.has(t.id))];
+
+        // Merge compras: preferir Sheets; añadir locales que Sheets no tiene
+        const sheetsCIds = new Set((d.compras || []).map(c => c.id));
+        const soloLocal  = localCompras.filter(c => !sheetsCIds.has(c.id));
+        d.compras = [...(d.compras || []), ...soloLocal];
+
+        // Preservar fecha_primera_cuota desde localStorage cuando Sheets devuelve null
+        if (localCompras.length) {
           d.compras = d.compras.map(c => {
             if (!c.fecha_primera_cuota) {
               const lc = localCompras.find(x => x.id === c.id);
@@ -2289,13 +2300,18 @@ async function loadTarjetas() {
             return c;
           });
         }
+
+        // Merge pagosTC: preferir Sheets; añadir locales que Sheets no tiene
+        const sheetsPIds = new Set((d.pagosTC || []).map(p => p.id));
+        d.pagosTC = [...(d.pagosTC || []), ...localPagos.filter(p => !sheetsPIds.has(p.id))];
+
         tarjetasData = d;
         localStorage.setItem('poritos_tarjetas', JSON.stringify(d));
         return;
       }
     }
   } catch(e) {}
-  tarjetasData = JSON.parse(localStorage.getItem('poritos_tarjetas') || JSON.stringify({ tarjetas: [], compras: [] }));
+  tarjetasData = local.tarjetas !== undefined ? local : { tarjetas: [], compras: [], pagosTC: [] };
 }
 
 function saveTarjetasLocal() {
@@ -2309,7 +2325,7 @@ function saveTarjetasLocal() {
 // Cuántas cuotas han pasado. Si hay fecha_primera_cuota usa esa como base; si no, usa fecha_compra.
 function calcCuotaActual(c) {
   const firstMes = (c.fecha_primera_cuota || (c.fecha_compra ? c.fecha_compra.substring(0, 7) : null));
-  if (!firstMes) return 0;
+  if (!firstMes || !/^\d{4}-\d{2}/.test(firstMes)) return 0;
 
   const pagosParaTarjeta = (tarjetasData.pagosTC || []).filter(p => p.tarjeta_id === c.tarjeta_id);
 
@@ -2345,7 +2361,7 @@ function calcCuotasAtrasadas(c) {
   const pagadas = calcCuotaActual(c);
   return Math.max(0, esperadas - pagadas);
 }
-function calcCuotasRestantes(c) { return Math.max(0, c.cuotas_totales - calcCuotaActual(c)); }
+function calcCuotasRestantes(c) { return Math.max(0, (parseInt(c.cuotas_totales) || 0) - calcCuotaActual(c)); }
 function calcMontoRestante(c)   { return calcCuotasRestantes(c) * (parseFloat(c.monto_por_cuota) || 0); }
 
 function calcTotalUsado(tarjeta_id) {
