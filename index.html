@@ -69,20 +69,32 @@ html { overflow-x: hidden; }
 
 /* ── Page header ── */
 .page-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-.page-title { font-size: 22px; font-weight: 700; color: var(--navy); letter-spacing: -0.5px; }
+.page-title { position: relative; padding-left: 14px; font-size: 22px; font-weight: 700; color: var(--navy); letter-spacing: -0.5px; }
+.page-title::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px; border-radius: 3px; background: linear-gradient(180deg, var(--gold), var(--gold-dark)); }
 .page-header { border-bottom: 1px solid var(--border); padding-bottom: 16px; }
 .month-nav { display: flex; align-items: center; gap: 8px; }
-.month-nav button { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; font-size: 14px; color: var(--text2); display: flex; align-items: center; justify-content: center; }
-.month-nav button:hover { background: var(--surface2); }
-.month-nav .month-label { font-size: 14px; font-weight: 500; color: var(--text); min-width: 140px; text-align: center; }
+.month-nav button { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; font-size: 14px; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.month-nav button:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+.month-nav .month-label { font-size: 14px; font-weight: 600; color: var(--navy); min-width: 140px; text-align: center; letter-spacing: -0.2px; }
 
 /* ── Metric cards ── */
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
 .metrics-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
-.metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); border-top: 3px solid var(--border); }
-.metric .m-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.10em; color: var(--text3); margin-bottom: 10px; font-weight: 600; }
-.metric .m-value { font-size: 21px; font-weight: 600; font-family: var(--mono); letter-spacing: -0.5px; color: var(--navy); }
-.metric .m-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
+.metric { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.metric::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border); }
+.metric:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.metric.acc-ing::before { background: linear-gradient(90deg, #128A52, #36B37E); }
+.metric.acc-gas::before { background: linear-gradient(90deg, #B5362A, #E2574C); }
+.metric.acc-aho::before { background: linear-gradient(90deg, #173460, #2E6BC9); }
+.metric.acc-lib::before { background: linear-gradient(90deg, var(--gold-dark), var(--gold)); }
+.metric .m-label { display: flex; align-items: center; gap: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.11em; color: var(--text3); margin-bottom: 12px; font-weight: 700; }
+.metric .m-label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.55; flex-shrink: 0; }
+.metric.acc-ing .m-label { color: #128A52; }
+.metric.acc-gas .m-label { color: #B5362A; }
+.metric.acc-aho .m-label { color: var(--blue); }
+.metric.acc-lib .m-label { color: var(--gold-dark); }
+.metric .m-value { font-size: 23px; font-weight: 600; font-family: var(--mono); letter-spacing: -0.6px; color: var(--navy); }
+.metric .m-sub { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.4; }
 .m-pos { color: #1A7A4A; }
 .m-neg { color: var(--danger); }
 .m-blue { color: var(--blue); }
@@ -95,8 +107,10 @@ html { overflow-x: hidden; }
 .grid-2 > *, .grid-3 > * { min-width: 0; }
 
 /* ── Cards ── */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; max-width: 100%; }
-.card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text3); margin-bottom: 18px; font-weight: 700; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; max-width: 100%; transition: box-shadow 0.18s ease, border-color 0.18s ease; }
+.card:hover { box-shadow: var(--shadow-md); border-color: #C3CCDC; }
+.card-title { display: flex; align-items: center; gap: 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--navy); margin-bottom: 18px; font-weight: 700; }
+.card-title::before { content: ''; width: 3px; height: 13px; background: var(--gold); border-radius: 2px; flex-shrink: 0; }
 
 /* ── Form ── */
 .form-row { display: grid; gap: 12px; margin-bottom: 12px; }
@@ -137,9 +151,9 @@ html { overflow-x: hidden; }
 
 /* ── Tx list ── */
 .tx-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.tx-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: background 0.1s; width: 100%; box-sizing: border-box; }
-.tx-item:hover { background: var(--surface2); }
-.tx-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tx-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: background 0.12s, border-color 0.12s, box-shadow 0.12s; width: 100%; box-sizing: border-box; }
+.tx-item:hover { background: var(--surface2); border-color: #C3CCDC; box-shadow: var(--shadow); }
+.tx-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 3px rgba(0,0,0,0.025); }
 .tx-info { flex: 1; min-width: 0; }
 .tx-desc { font-size: 13px; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tx-meta { font-size: 11px; color: var(--text3); margin-top: 1px; }
@@ -151,9 +165,9 @@ html { overflow-x: hidden; }
 /* ── Cat bars ── */
 .cat-row { margin-bottom: 12px; width: 100%; box-sizing: border-box; }
 .cat-row-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-.cat-row-top span:first-child { color: var(--text2); font-weight: 500; }
-.cat-row-top span:last-child { color: var(--text); font-family: var(--mono); font-size: 12px; }
-.cat-track { height: 5px; background: var(--surface2); border-radius: 20px; overflow: hidden; width: 100%; }
+.cat-row-top span:first-child { color: var(--text2); font-weight: 600; }
+.cat-row-top span:last-child { color: var(--navy); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.cat-track { height: 7px; background: var(--surface2); border-radius: 20px; overflow: hidden; width: 100%; }
 .cat-fill { height: 100%; border-radius: 20px; transition: width 0.4s; }
 
 /* ── Progress ── */
@@ -185,7 +199,7 @@ html { overflow-x: hidden; }
 
 /* ── Patrimonio ── */
 .patrimonio-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; transition: background 0.1s; position: relative; }
-.patrimonio-item:hover { background: var(--surface2); }
+.patrimonio-item:hover { background: var(--surface2); border-color: #C3CCDC; box-shadow: var(--shadow); }
 .pat-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 .pat-info { flex: 1; min-width: 0; }
 .pat-name { font-size: 14px; font-weight: 600; color: var(--text); }
@@ -201,15 +215,37 @@ html { overflow-x: hidden; }
 .deuda-fill { height: 100%; border-radius: 20px; }
 
 /* ── Net worth banner ── */
-.nw-banner { background: linear-gradient(135deg, var(--navy) 0%, #1A3A6B 100%); border-radius: var(--radius); padding: 24px 28px; margin-bottom: 24px; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid rgba(196,159,83,0.25); box-shadow: var(--shadow-md); }
-.nw-main { flex: 1; }
-.nw-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
-.nw-value { font-size: 36px; font-weight: 600; font-family: var(--mono); letter-spacing: -1px; }
-.nw-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px; }
-.nw-cols { display: flex; gap: 32px; }
+.nw-banner { position: relative; overflow: hidden; background: linear-gradient(135deg, var(--navy) 0%, #16315C 60%, #1A3A6B 100%); border-radius: var(--radius); padding: 26px 30px; margin-bottom: 24px; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid rgba(196,159,83,0.30); border-top: 2px solid var(--gold); box-shadow: var(--shadow-md); }
+.nw-banner::after { content: 'WP'; position: absolute; right: 22px; bottom: -22px; font-size: 104px; font-weight: 800; font-family: var(--font); letter-spacing: -5px; color: rgba(196,159,83,0.07); pointer-events: none; line-height: 1; }
+.nw-main { flex: 1; position: relative; z-index: 1; }
+.nw-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.10em; color: var(--gold); font-weight: 600; margin-bottom: 8px; }
+.nw-value { font-size: 38px; font-weight: 600; font-family: var(--mono); letter-spacing: -1.2px; }
+.nw-sub { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px; }
+.nw-cols { display: flex; gap: 32px; position: relative; z-index: 1; }
 .nw-col { text-align: center; }
-.nw-col-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
-.nw-col-val { font-size: 18px; font-weight: 600; font-family: var(--mono); }
+.nw-col-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.45); margin-bottom: 5px; }
+.nw-col-val { font-size: 19px; font-weight: 600; font-family: var(--mono); }
+
+/* ── Dashboard TC banner ── */
+.dash-tc { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: var(--radius); padding: 18px 22px; margin-bottom: 24px; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow 0.18s, transform 0.18s; }
+.dash-tc:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.dash-tc.alert { border-left-color: var(--danger); }
+.dash-tc-head { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
+.dash-tc-ico { width: 26px; height: 26px; border-radius: 7px; background: var(--navy); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.dash-tc-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.10em; color: var(--navy); font-weight: 700; }
+.dash-tc-cta { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--gold-dark); display: flex; align-items: center; gap: 4px; }
+.dash-tc-body { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 22px; align-items: start; }
+.dash-tc-block .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); font-weight: 600; margin-bottom: 6px; }
+.dash-tc-block .val { font-size: 22px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.5px; line-height: 1; }
+.dash-tc-block .sub { font-size: 11px; color: var(--text3); margin-top: 6px; }
+.dash-tc-net { text-align: right; padding-left: 22px; border-left: 1px solid var(--border); }
+.dash-tc-bar { margin-top: 9px; height: 5px; background: var(--surface2); border-radius: 20px; overflow: hidden; }
+.dash-tc-bar > div { height: 100%; border-radius: 20px; transition: width 0.4s; }
+@media (max-width: 768px) {
+  .dash-tc-body { grid-template-columns: 1fr 1fr; gap: 16px 18px; }
+  .dash-tc-net { grid-column: 1 / -1; text-align: left; padding-left: 0; padding-top: 14px; border-left: none; border-top: 1px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+  .dash-tc-net .sub { margin-top: 0; margin-left: auto; }
+}
 
 /* ── Modal ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -715,10 +751,10 @@ html { overflow-x: hidden; }
         </div>
       </div>
       <div class="metrics" id="dash-metrics">
-        <div class="metric"><div class="m-label">Ingresos</div><div class="m-value m-pos" id="m-ing">—</div></div>
-        <div class="metric"><div class="m-label">Gastos</div><div class="m-value m-neg" id="m-gas">—</div></div>
-        <div class="metric"><div class="m-label">Ahorro</div><div class="m-value m-blue" id="m-ahorro">—</div><div class="m-sub" id="m-tasa-sub">Meta: ≥ 20%</div></div>
-        <div class="metric"><div class="m-label">Flujo libre</div><div class="m-value" id="m-libre">—</div><div class="m-sub" id="m-libre-sub"></div></div>
+        <div class="metric acc-ing"><div class="m-label">Ingresos</div><div class="m-value m-pos" id="m-ing">—</div></div>
+        <div class="metric acc-gas"><div class="m-label">Gastos</div><div class="m-value m-neg" id="m-gas">—</div></div>
+        <div class="metric acc-aho"><div class="m-label">Ahorro</div><div class="m-value m-blue" id="m-ahorro">—</div><div class="m-sub" id="m-tasa-sub">Meta: ≥ 20%</div></div>
+        <div class="metric acc-lib"><div class="m-label">Flujo libre</div><div class="m-value" id="m-libre">—</div><div class="m-sub" id="m-libre-sub"></div></div>
       </div>
       <!-- Patrimonio neto mini -->
       <div id="dash-patrimonio-banner"></div>
@@ -1770,7 +1806,7 @@ function renderDashboard() {
       <div class="nw-main">
         <div class="nw-label">Patrimonio neto familiar</div>
         <div class="nw-value" style="color:${neto>=0?'#6EBF8B':'#E86C6C'}">${neto>=0?'':'−'}$${fmt(Math.abs(neto))}</div>
-        <div class="nw-sub">Ver detalle →</div>
+        <div class="nw-sub">Ver detalle <span style="color:var(--gold)">→</span></div>
       </div>
       <div class="nw-cols">
         <div class="nw-col"><div class="nw-col-label">Activos</div><div class="nw-col-val" style="color:#6EBF8B">$${fmt(totalActivos)}</div></div>
@@ -1786,26 +1822,32 @@ function renderDashboard() {
     const tcPct = tcTarjetas.reduce((s,t) => s + (t.limite||0), 0) > 0
       ? Math.min(100, Math.round(tcDeuda / tcTarjetas.reduce((s,t) => s + (t.limite||0), 0) * 100))
       : 0;
-    const barColor = tcPct >= 80 ? '#E86C6C' : tcPct >= 50 ? '#FBBF24' : '#6EBF8B';
+    const barColor = tcPct >= 80 ? '#E2574C' : tcPct >= 50 ? '#C49F53' : '#36B37E';
+    const cargoColor = tcCargo > 0 ? 'var(--danger)' : 'var(--navy)';
     document.getElementById('dash-tc-banner').innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:var(--shadow);cursor:pointer;border-left:4px solid var(--danger)"
-         onclick="showPage('tarjetas',document.querySelector('[onclick*=tarjetas]'))">
-      <div style="flex:1">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.10em;color:var(--text3);font-weight:700;margin-bottom:6px">💳 Tarjetas de crédito</div>
-        <div style="display:flex;align-items:baseline;gap:8px">
-          <span style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--danger)">$${fmt(tcCargo)}</span>
-          <span style="font-size:12px;color:var(--text3)">cargo este mes · ${tcNCompras} compra${tcNCompras!==1?'s':''} vigente${tcNCompras!==1?'s':''}</span>
-        </div>
-        <div style="margin-top:8px;height:4px;background:var(--surface2);border-radius:20px;overflow:hidden;max-width:300px">
-          <div style="width:${tcPct}%;height:100%;background:${barColor};border-radius:20px;transition:width 0.4s"></div>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Deuda total: $${fmt(tcDeuda)} · ${tcPct}% del cupo utilizado</div>
+    <div class="dash-tc${tcCargo>0?' alert':''}" onclick="showPage('tarjetas',document.querySelector('[onclick*=tarjetas]'))">
+      <div class="dash-tc-head">
+        <span class="dash-tc-ico">💳</span>
+        <span class="dash-tc-title">Tarjetas de crédito</span>
+        <span class="dash-tc-cta">Ver tarjetas →</span>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:11px;color:var(--text3)">Flujo libre neto</div>
-        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${libNetTC>=0?'#1A7A4A':'var(--danger)'}">${libNetTC>=0?'':'−'}$${fmtK(Math.abs(libNetTC))}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">después de TC</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px">Ver tarjetas →</div>
+      <div class="dash-tc-body">
+        <div class="dash-tc-block">
+          <div class="lbl">Cargo este mes</div>
+          <div class="val" style="color:${cargoColor}">$${fmt(tcCargo)}</div>
+          <div class="sub">${tcNCompras} compra${tcNCompras!==1?'s':''} vigente${tcNCompras!==1?'s':''}</div>
+        </div>
+        <div class="dash-tc-block">
+          <div class="lbl">Deuda total</div>
+          <div class="val" style="color:var(--navy)">$${fmt(tcDeuda)}</div>
+          <div class="dash-tc-bar"><div style="width:${tcPct}%;background:${barColor}"></div></div>
+          <div class="sub">${tcPct}% del cupo utilizado</div>
+        </div>
+        <div class="dash-tc-block dash-tc-net">
+          <div class="lbl">Flujo libre neto</div>
+          <div class="val" style="color:${libNetTC>=0?'#1A7A4A':'var(--danger)'}">${libNetTC>=0?'':'−'}$${fmtK(Math.abs(libNetTC))}</div>
+          <div class="sub">después de TC</div>
+        </div>
       </div>
     </div>`;
   } else {
