@@ -557,7 +557,7 @@ html { overflow-x: hidden; }
         </select>
       </div>
       <div class="field"><label>¿Quién?</label>
-        <select id="etx-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+        <select id="etx-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
       </div>
     </div>
     <div id="etx-rec-row" style="margin-bottom:14px">
@@ -624,7 +624,7 @@ html { overflow-x: hidden; }
     <div class="form-row form-row-2">
       <div class="field"><label>Límite de crédito (CLP)</label><input type="number" id="tc-limite" placeholder="3000000" min="0"></div>
       <div class="field"><label>¿De quién?</label>
-        <select id="tc-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+        <select id="tc-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
       </div>
     </div>
     <div class="form-row form-row-2">
@@ -686,7 +686,7 @@ html { overflow-x: hidden; }
         </select>
       </div>
       <div class="field"><label>¿Quién compró?</label>
-        <select id="tc-compra-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+        <select id="tc-compra-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
       </div>
     </div>
     <div class="field">
@@ -806,7 +806,7 @@ html { overflow-x: hidden; }
                 </select>
               </div>
               <div class="field"><label>¿Quién?</label>
-                <select id="g-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+                <select id="g-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
               </div>
             </div>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;margin-bottom:14px">
@@ -825,7 +825,7 @@ html { overflow-x: hidden; }
                 <select id="i-tipo"><option>Sueldo</option><option>Renta propiedad</option><option>Bono</option><option>Otro</option></select>
               </div>
               <div class="field"><label>¿Quién?</label>
-                <select id="i-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+                <select id="i-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
               </div>
             </div>
             <button class="btn btn-success btn-full" onclick="submitIngreso()">Registrar ingreso</button>
@@ -844,7 +844,7 @@ html { overflow-x: hidden; }
                 </select>
               </div>
               <div class="field"><label>¿Quién?</label>
-                <select id="a-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+                <select id="a-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
               </div>
             </div>
             <button class="btn btn-primary btn-full" style="background:#185FA5;color:#fff" onclick="submitAhorro()">Registrar ahorro</button>
@@ -862,7 +862,7 @@ html { overflow-x: hidden; }
             </div>
             <div class="form-row form-row-2">
               <div class="field"><label>¿Quién?</label>
-                <select id="ptc-quien"><option>Pori</option><option>Roci</option><option>Ambos</option></select>
+                <select id="ptc-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
               </div>
               <div class="field"><label>Descripción (opcional)</label><input type="text" id="ptc-desc" placeholder="Pago cuota mensual..."></div>
             </div>
@@ -1179,6 +1179,23 @@ const ACT_TIPO_ICONS = { vivienda:'🏠', auto:'🚗', inversion:'📈', otro:'�
 const PAS_TIPO_LABELS = { hipoteca:'Hipoteca', credito_auto:'Crédito auto', credito_personal:'Crédito personal', tarjeta:'Tarjeta', otro:'Deuda' };
 
 let localTx = JSON.parse(localStorage.getItem('poritos_tx') || '[]');
+
+// ── Migración "Pori" → "Cris" en el campo Quien (registros antiguos) ──
+const QUIEN_MAP = { 'Pori': 'Cris', 'pori': 'Cris' };
+function fixQuien(v){ return QUIEN_MAP[v] || v; }
+function fixQuienTx(t){ if (t && QUIEN_MAP[t.Quien]) t.Quien = QUIEN_MAP[t.Quien]; return t; }
+function fixQuienLower(o){ if (o && QUIEN_MAP[o.quien]) o.quien = QUIEN_MAP[o.quien]; return o; }
+(function migrarQuienLocal(){
+  let ch = false;
+  localTx.forEach(t => { if (QUIEN_MAP[t.Quien]) { t.Quien = QUIEN_MAP[t.Quien]; ch = true; } });
+  if (ch) localStorage.setItem('poritos_tx', JSON.stringify(localTx));
+  try {
+    const tj = JSON.parse(localStorage.getItem('poritos_tarjetas') || '{}');
+    let ch2 = false;
+    ['tarjetas','compras','pagosTC'].forEach(k => (tj[k]||[]).forEach(o => { if (QUIEN_MAP[o.quien]) { o.quien = QUIEN_MAP[o.quien]; ch2 = true; } }));
+    if (ch2) localStorage.setItem('poritos_tarjetas', JSON.stringify(tj));
+  } catch(e) {}
+})();
 let localMeta = JSON.parse(localStorage.getItem('poritos_meta') || JSON.stringify({
   precio_objetivo:120000000,pie_pct:20,ahorro_acumulado:1890000,ingreso_mensual:5130000
 }));
@@ -1343,11 +1360,11 @@ async function loadTx() {
   try {
     if (SCRIPT_URL) {
       const d = await apiGet({action:'getTx', year:curYear, month:curMonth});
-      if (d && d.rows) { cachedTx = d.rows; return; }
+      if (d && d.rows) { cachedTx = d.rows.map(fixQuienTx); return; }
     }
   } catch(e) {}
   const prefix = `${curYear}-${pad(curMonth)}`;
-  cachedTx = localTx.filter(t => t.Fecha && t.Fecha.startsWith(prefix));
+  cachedTx = localTx.filter(t => t.Fecha && t.Fecha.startsWith(prefix)).map(fixQuienTx);
 }
 
 async function loadMeta() {
@@ -1538,7 +1555,7 @@ function openEditTx(id) {
   document.getElementById('etx-fecha').value = t.Fecha || '';
   document.getElementById('etx-desc').value  = t.Descripcion || '';
   document.getElementById('etx-monto').value = t.Monto || '';
-  document.getElementById('etx-quien').value = t.Quien || 'Pori';
+  document.getElementById('etx-quien').value = t.Quien || 'Cris';
   document.getElementById('etx-rec').checked = t.Recurrente === 'Sí';
   onEditTxTipoChange();
   const tipo = t.Tipo || 'gasto';
@@ -2315,7 +2332,7 @@ Activos:\n${activos}
 Pasivos:\n${pasivos}
 
 META VIVIENDA: Precio objetivo $${p.toLocaleString()} CLP, pie ${pie}% ($${Math.round(p*pie/100).toLocaleString()} CLP), ahorro acumulado $${acu.toLocaleString()} CLP
-Contexto: Familia chilena (Pori y Roci) con 1 casa, 1 departamento, 1 auto. Objetivo: tercera vivienda.`;
+Contexto: Familia chilena (Cris y Roci) con 1 casa, 1 departamento, 1 auto. Objetivo: tercera vivienda.`;
 }
 
 async function askAI(q) {
@@ -2391,6 +2408,7 @@ async function loadTarjetas() {
         const sheetsPIds = new Set((d.pagosTC || []).map(p => p.id));
         d.pagosTC = [...(d.pagosTC || []), ...localPagos.filter(p => !sheetsPIds.has(p.id))];
 
+        ['tarjetas','compras','pagosTC'].forEach(k => (d[k]||[]).forEach(fixQuienLower));
         tarjetasData = d;
         localStorage.setItem('poritos_tarjetas', JSON.stringify(d));
         return;
@@ -2739,7 +2757,7 @@ function openModalTarjeta(editId) {
       document.getElementById('tc-nombre').value   = t.nombre || '';
       document.getElementById('tc-banco').value    = t.banco  || '';
       document.getElementById('tc-limite').value   = t.limite || '';
-      document.getElementById('tc-quien').value    = t.quien  || 'Pori';
+      document.getElementById('tc-quien').value    = t.quien  || 'Cris';
       document.getElementById('tc-corte').value    = t.fecha_corte || '';
       document.getElementById('tc-pago').value     = t.fecha_pago  || '';
       selectTCColor(t.color_idx || 0);
@@ -2821,7 +2839,7 @@ function openModalCompraTc(editId) {
       document.getElementById('tc-compra-cuota-monto').value     = c.monto_por_cuota || '';
       document.getElementById('tc-compra-tasa').value            = c.tasa_interes || '';
       document.getElementById('tc-compra-cat').value             = c.categoria || 'Otro';
-      document.getElementById('tc-compra-quien').value           = c.quien || 'Pori';
+      document.getElementById('tc-compra-quien').value           = c.quien || 'Cris';
       document.getElementById('tc-compra-primera-cuota').value   = c.fecha_primera_cuota || '';
       document.getElementById('tc-compra-pagadas').value         = (c.cuotas_pagadas != null ? c.cuotas_pagadas : 0);
     }
@@ -2900,7 +2918,7 @@ function _registrarPagoTCRecord(tarjetaId, monto, desc) {
   const h = new Date();
   const fecha = h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
   const tj = (tarjetasData.tarjetas || []).find(t => t.id === tarjetaId);
-  const quien = (tj && tj.quien) ? tj.quien : 'Pori';
+  const quien = (tj && tj.quien) ? tj.quien : 'Cris';
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:'Pago Tarjeta', Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:'Pago Tarjeta',descripcion:desc,monto,quien,recurrente:false}});
