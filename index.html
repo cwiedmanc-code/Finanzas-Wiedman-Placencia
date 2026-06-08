@@ -841,7 +841,7 @@ html { overflow-x: hidden; }
           <div id="sec-ahorro" style="display:none">
             <div class="form-row form-row-3">
               <div class="field"><label>Descripción</label><input type="text" id="a-desc" placeholder="Ahorro mensual, APV..."></div>
-              <div class="field"><label>Monto (CLP)</label><input type="number" id="a-monto" placeholder="0" min="0"></div>
+              <div class="field"><label>Monto (CLP)</label><input type="number" id="a-monto" placeholder="0" min="0" oninput="onInversionSelect()"></div>
               <div class="field"><label>Fecha</label><input type="date" id="a-fecha"></div>
             </div>
             <div class="form-row form-row-2">
@@ -854,6 +854,11 @@ html { overflow-x: hidden; }
               <div class="field"><label>¿Quién?</label>
                 <select id="a-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
               </div>
+            </div>
+            <div class="field" style="margin-bottom:12px">
+              <label>¿A qué inversión va? <span style="text-transform:none;letter-spacing:0;color:var(--text3)">(opcional — actualiza su valor en Patrimonio)</span></label>
+              <select id="a-inversion" onchange="onInversionSelect()"><option value="">— No vincular —</option></select>
+              <div id="a-inversion-hint" style="font-size:11px;color:#185FA5;margin-top:5px;display:none"></div>
             </div>
             <button class="btn btn-primary btn-full" style="background:#185FA5;color:#fff" onclick="submitAhorro()">Registrar ahorro</button>
           </div>
@@ -1588,8 +1593,50 @@ async function submitAhorro() {
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'ahorro', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ahorro',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#185FA5'); });
+  // Si el ahorro está vinculado a una inversión → suma el monto a su valor de mercado
+  const invId = document.getElementById('a-inversion').value;
+  let msgInv = '';
+  if (invId) msgInv = aplicarAporteAhorro(invId, monto);
   document.getElementById('a-desc').value = ''; document.getElementById('a-monto').value = '';
-  toast('Ahorro registrado', '#185FA5'); renderDashboard(); renderTodayList();
+  document.getElementById('a-inversion').value = ''; onInversionSelect();
+  toast(msgInv || 'Ahorro registrado', '#185FA5'); renderDashboard(); renderTodayList();
+}
+
+// Suma el aporte ahorrado al valor de mercado de la inversión seleccionada.
+function aplicarAporteAhorro(id, monto) {
+  const a = (patrimonioData.activos || []).find(x => x.id === id);
+  if (!a) return '';
+  const aporte = parseFloat(monto) || 0;
+  if (aporte <= 0) return '';
+  a.valor_mercado = Math.round((parseFloat(a.valor_mercado) || 0) + aporte);
+  a.updated = new Date().toISOString();
+  savePatrimonioLocal();
+  if (typeof renderPatrimonio === 'function') renderPatrimonio();
+  return `Aporte sumado a ${a.nombre} · nuevo valor $${fmt(a.valor_mercado)}`;
+}
+
+// Llena el selector de inversiones del formulario de Ahorro (activos tipo inversión)
+function fillInversionSelect() {
+  const sel = document.getElementById('a-inversion');
+  if (!sel) return;
+  const prev = sel.value;
+  const invs = (patrimonioData.activos || []).filter(a => a.tipo === 'inversion');
+  sel.innerHTML = '<option value="">— No vincular —</option>' +
+    invs.map(a => `<option value="${a.id}">${a.nombre} · $${fmt(a.valor_mercado||0)}</option>`).join('');
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+// Al elegir una inversión: muestra el aviso del nuevo valor estimado
+function onInversionSelect() {
+  const sel = document.getElementById('a-inversion');
+  const hint = document.getElementById('a-inversion-hint');
+  if (!hint) return;
+  const a = (patrimonioData.activos || []).find(x => x.id === (sel ? sel.value : ''));
+  if (!a) { hint.style.display = 'none'; return; }
+  const monto = parseFloat(document.getElementById('a-monto').value) || 0;
+  const nuevo = Math.round((parseFloat(a.valor_mercado) || 0) + monto);
+  hint.textContent = `Sumará $${fmt(monto)} a ${a.nombre} · valor actual $${fmt(a.valor_mercado||0)} → nuevo $${fmt(nuevo)}`;
+  hint.style.display = 'block';
 }
 
 async function submitPagoTC() {
@@ -1971,6 +2018,7 @@ function renderDashboard() {
     '<div class="empty"><div class="e-icon">📋</div>Sin movimientos</div>';
 
   fillDeudaSelect();
+  fillInversionSelect();
 }
 
 function renderHistorial() {
@@ -2099,6 +2147,7 @@ function renderPatrimonio() {
         <div class="pat-amount" style="color:var(--accent)">$${fmt(a.valor_mercado)}</div>
         <div class="pat-sub">${a.tipo}</div>
       </div>
+      <button class="pat-edit" onclick="openModalActivo('${a.id}')" title="Editar">✎</button>
       <button class="pat-del" onclick="deleteActivo('${a.id}')" title="Eliminar">×</button>
     </div>`;
   }).join('') : '<div class="empty"><div class="e-icon">🏠</div>Agrega tu primera propiedad o activo</div>';
@@ -2141,12 +2190,15 @@ function renderPatrimonio() {
   const inversiones = activos.filter(a => a.tipo === 'inversion');
   if (inversiones.length) {
     document.getElementById('pat-inversiones-list').innerHTML = inversiones.map(inv => {
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-        <div>
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="min-width:0">
           <div style="font-size:13px;font-weight:600">${inv.nombre}</div>
           <div style="font-size:11px;color:var(--text3)">${inv.institucion||''} ${inv.aporte>0?'· Aporte: $'+fmt(inv.aporte)+'/mes':''}</div>
         </div>
-        <div style="font-weight:600;font-family:var(--mono);color:var(--accent)">$${fmt(inv.valor_mercado)}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div style="font-weight:600;font-family:var(--mono);color:var(--accent)">$${fmt(inv.valor_mercado)}</div>
+          <button class="pat-edit" style="margin-left:0" onclick="openModalActivo('${inv.id}')" title="Editar">✎</button>
+        </div>
       </div>`;
     }).join('') + `<div style="display:flex;justify-content:space-between;font-size:13px;padding-top:10px">
       <span style="color:var(--text3)">Total inversiones</span>
