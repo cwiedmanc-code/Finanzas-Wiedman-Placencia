@@ -1,6 +1,6 @@
 // ── VERSIÓN: cambia este número cada vez que hagas un deploy ──
 // Ej: poritos-v2, poritos-v3, poritos-v4...
-const CACHE = 'poritos-v14';
+const CACHE = 'poritos-v15';
 
 const ASSETS = [
   '/Finanzas-Wiedman-Placencia/',
