@@ -209,6 +209,8 @@ html { overflow-x: hidden; }
 .pat-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .pat-del { background: none; border: none; cursor: pointer; color: var(--text3); padding: 4px; border-radius: 4px; font-size: 14px; margin-left: 8px; align-self: center; }
 .pat-del:hover { background: var(--danger-light); color: var(--danger); }
+.pat-edit { background: none; border: none; cursor: pointer; color: var(--text3); padding: 4px; border-radius: 4px; font-size: 13px; margin-left: 8px; align-self: center; }
+.pat-edit:hover { background: var(--gold-light); color: var(--gold-dark); }
 
 .deuda-progress { margin-top: 8px; }
 .deuda-track { height: 4px; background: var(--surface2); border-radius: 20px; overflow: hidden; }
@@ -353,6 +355,7 @@ html { overflow-x: hidden; }
   .pat-amount { font-size: 14px; }
   .pat-sub { font-size: 10px; }
   .pat-del { position: absolute; top: 8px; right: 8px; margin-left: 0; align-self: flex-start; }
+  .pat-edit { position: absolute; top: 8px; right: 36px; margin-left: 0; align-self: flex-start; }
   .deuda-progress { margin-top: 4px; }
   .deuda-progress > div:first-child { flex-wrap: wrap; }
   /* Items de compras: 2 filas — [icono|info] y luego [precios|botones] */
@@ -794,7 +797,7 @@ html { overflow-x: hidden; }
             <div class="quick-grid" id="quick-cats"></div>
             <div class="form-row form-row-3">
               <div class="field"><label>Descripción</label><input type="text" id="g-desc" placeholder="Supermercado, bencina..."></div>
-              <div class="field"><label>Monto (CLP)</label><input type="number" id="g-monto" placeholder="0" min="0"></div>
+              <div class="field"><label>Monto (CLP)</label><input type="number" id="g-monto" placeholder="0" min="0" oninput="updateDeudaHint()"></div>
               <div class="field"><label>Fecha</label><input type="date" id="g-fecha"></div>
             </div>
             <div class="form-row form-row-2">
@@ -808,6 +811,11 @@ html { overflow-x: hidden; }
               <div class="field"><label>¿Quién?</label>
                 <select id="g-quien"><option>Cris</option><option>Roci</option><option>Ambos</option></select>
               </div>
+            </div>
+            <div class="field" style="margin-bottom:12px">
+              <label>¿Es cuota de una deuda? <span style="text-transform:none;letter-spacing:0;color:var(--text3)">(opcional)</span></label>
+              <select id="g-deuda" onchange="onDeudaSelect()"><option value="">— No, es un gasto normal —</option></select>
+              <div id="g-deuda-hint" style="font-size:11px;color:var(--gold-dark);margin-top:5px;display:none"></div>
             </div>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;margin-bottom:14px">
               <input type="checkbox" id="g-rec"> Gasto recurrente mensual
@@ -1479,9 +1487,81 @@ async function submitGasto() {
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:rec?'Sí':'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:cat,descripcion:desc,monto,quien,recurrente:rec}}).then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+  // Si el gasto es cuota de una deuda → cierra 1 cuota y recalcula el saldo
+  const deudaId = document.getElementById('g-deuda').value;
+  let msgDeuda = '';
+  if (deudaId) msgDeuda = aplicarPagoDeuda(deudaId, monto);
   document.getElementById('g-desc').value = ''; document.getElementById('g-monto').value = ''; document.getElementById('g-rec').checked = false;
+  document.getElementById('g-deuda').value = ''; onDeudaSelect();
   document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('sel'));
-  toast('Gasto registrado', '#1D9E75'); renderDashboard(); renderTodayList();
+  toast(msgDeuda || 'Gasto registrado', '#1D9E75'); renderDashboard(); renderTodayList();
+}
+
+// Cierra 1 cuota de la deuda. Usa el monto REAL pagado (las cuotas en UF varían),
+// lo guarda como la cuota de referencia y recalcula el saldo = cuotas restantes × monto.
+function aplicarPagoDeuda(id, monto) {
+  const p = (patrimonioData.pasivos || []).find(x => x.id === id);
+  if (!p) return '';
+  const tot = parseInt(p.cuotas_totales) || 0;
+  const pag = parseInt(p.cuotas_pagadas) || 0;
+  if (tot && pag >= tot) { toast('Esa deuda ya está pagada por completo', '#888'); return ''; }
+  p.cuotas_pagadas = pag + 1;
+  const pagoCuota = parseFloat(monto) || parseFloat(p.cuota_mensual) || 0;
+  if (pagoCuota > 0) p.cuota_mensual = pagoCuota;   // refleja el valor UF de esta cuota
+  if (tot > 0) {
+    const rest = Math.max(0, tot - p.cuotas_pagadas);
+    p.saldo_pendiente = Math.round(rest * pagoCuota);
+  } else {
+    p.saldo_pendiente = Math.max(0, Math.round((parseFloat(p.saldo_pendiente) || 0) - pagoCuota));
+  }
+  p.updated = new Date().toISOString();
+  savePatrimonioLocal();
+  if (typeof renderPatrimonio === 'function') renderPatrimonio();
+  return `Cuota aplicada a ${p.nombre} · ${p.cuotas_pagadas}${tot?'/'+tot:''} · $${fmt(pagoCuota)}`;
+}
+
+// Llena el selector de deudas del formulario de Gasto (solo deudas con saldo de cuotas)
+function fillDeudaSelect() {
+  const sel = document.getElementById('g-deuda');
+  if (!sel) return;
+  const prev = sel.value;
+  const deudas = (patrimonioData.pasivos || []).filter(p => {
+    const tot = parseInt(p.cuotas_totales) || 0, pag = parseInt(p.cuotas_pagadas) || 0;
+    return tot === 0 || pag < tot;
+  });
+  sel.innerHTML = '<option value="">— No, es un gasto normal —</option>' +
+    deudas.map(p => {
+      const tot = parseInt(p.cuotas_totales) || 0, pag = parseInt(p.cuotas_pagadas) || 0;
+      return `<option value="${p.id}">${p.nombre} · cuota $${fmt(p.cuota_mensual||0)}${tot?` (${pag}/${tot})`:''}</option>`;
+    }).join('');
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+// Al elegir una deuda: autocompleta monto (editable, cuotas UF varían) y descripción
+function onDeudaSelect() {
+  const sel = document.getElementById('g-deuda');
+  const p = (patrimonioData.pasivos || []).find(x => x.id === sel.value);
+  if (p) {
+    const m = document.getElementById('g-monto'); if (!m.value) m.value = Math.round(parseFloat(p.cuota_mensual) || 0);
+    const d = document.getElementById('g-desc'); if (!d.value) d.value = 'Cuota ' + p.nombre;
+  }
+  updateDeudaHint();
+}
+
+// Recalcula el aviso en vivo usando el monto escrito (se llama también al editar el monto)
+function updateDeudaHint() {
+  const sel = document.getElementById('g-deuda');
+  const hint = document.getElementById('g-deuda-hint');
+  if (!hint) return;
+  const p = (patrimonioData.pasivos || []).find(x => x.id === (sel ? sel.value : ''));
+  if (!p) { hint.style.display = 'none'; return; }
+  const tot = parseInt(p.cuotas_totales) || 0, pag = parseInt(p.cuotas_pagadas) || 0;
+  const monto = parseFloat(document.getElementById('g-monto').value) || parseFloat(p.cuota_mensual) || 0;
+  const nuevoSaldo = tot > 0
+    ? Math.round(Math.max(0, tot - (pag + 1)) * monto)
+    : Math.max(0, Math.round((parseFloat(p.saldo_pendiente) || 0) - monto));
+  hint.textContent = `Cerrará 1 cuota (${pag+1}${tot?'/'+tot:''}) con $${fmt(monto)} · nuevo saldo ${tot>0?'estimado ':''}$${fmt(nuevoSaldo)}`;
+  hint.style.display = 'block';
 }
 
 async function submitIngreso() {
@@ -1889,6 +1969,8 @@ function renderDashboard() {
   const recent = [...cachedTx].sort((a,b)=>b.Fecha?.localeCompare(a.Fecha));
   document.getElementById('dash-recent').innerHTML = recent.length ? recent.map(t => txItemHTML(t)).join('') :
     '<div class="empty"><div class="e-icon">📋</div>Sin movimientos</div>';
+
+  fillDeudaSelect();
 }
 
 function renderHistorial() {
@@ -2048,6 +2130,7 @@ function renderPatrimonio() {
         <div class="pat-amount" style="color:var(--danger)">$${fmt(p.saldo_pendiente||0)}</div>
         <div class="pat-sub">${label}</div>
       </div>
+      <button class="pat-edit" onclick="openModalPasivo('${p.id}')" title="Editar">✎</button>
       <button class="pat-del" onclick="deletePasivo('${p.id}')" title="Eliminar">×</button>
     </div>`;
   }).join('') : '<div class="empty"><div class="e-icon">📄</div>Agrega tus hipotecas y créditos</div>';
