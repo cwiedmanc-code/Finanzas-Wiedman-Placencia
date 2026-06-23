@@ -18,6 +18,7 @@
   const sbClient = window.supabase.createClient(SB_URL, SB_KEY);
   let currentUserId = null;
   let currentUserEmail = '';
+  const ADMIN_UID = 'd15eac03-3ac8-4954-b6c0-efd15396ba2a';
 
   // Registrar service worker (necesario para instalar como app PWA)
   if ('serviceWorker' in navigator) {
@@ -781,6 +782,7 @@ html { overflow-x: hidden; }
     <div class="nav-item" onclick="showPage('tarjetas',this)"><span class="icon">▣</span> Tarjetas TC</div>
     <div class="nav-section">Configuración</div>
     <div class="nav-item" onclick="showPage('config',this)"><span class="icon">⚙</span> Configurar</div>
+    <div class="nav-item" id="nav-admin" onclick="showPage('admin',this)" style="display:none"><span class="icon">📊</span> Admin</div>
     <div class="nav-item" onclick="logout()" style="margin-top:auto;color:rgba(255,255,255,0.4)"><span class="icon">↩</span> Cerrar sesión</div>
   </aside>
 
@@ -1157,6 +1159,33 @@ html { overflow-x: hidden; }
       </div>
     </div>
 
+    <!-- ══════════ ADMIN ══════════ -->
+    <div class="page" id="page-admin">
+      <div class="page-header"><div class="page-title">Panel Admin</div></div>
+      <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
+        <div class="card">Cargando estadísticas…</div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Registros — últimos 30 días</div>
+        <div id="admin-signups-chart" style="display:flex;align-items:flex-end;gap:3px;height:120px;margin-top:12px;"></div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Encuesta de comentarios</div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px;">Se muestra automáticamente cuando el usuario llega a N movimientos, o puedes activarla manualmente para todos.</p>
+        <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--text);margin-bottom:14px;cursor:pointer;">
+          <input type="checkbox" id="admin-campaign" style="width:16px;height:16px;accent-color:var(--gold);"> Mostrar encuesta a todos ahora
+        </label>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:14px;color:var(--text);">
+          Pedir tras <input type="number" id="admin-min-tx" min="1" value="10" style="width:72px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);"> movimientos
+        </div>
+        <button class="btn btn-primary" onclick="saveCampaign()">Guardar configuración</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Comentarios recibidos (<span id="admin-fb-count">0</span>)</div>
+        <div id="admin-feedback-list" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
   </main>
 
   <nav class="bottom-nav">
@@ -1189,6 +1218,22 @@ html { overflow-x: hidden; }
       <span class="bn-lbl">Config</span>
     </button>
   </nav>
+</div>
+
+<!-- ── Modal Feedback ── -->
+<div class="modal-overlay hidden" id="modal-feedback">
+  <div class="modal" style="max-width:420px;">
+    <div class="card-title" style="margin-bottom:6px;">¿Cómo va tu experiencia con METTA?</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Tu opinión nos ayuda a mejorar la app.</p>
+    <div id="fb-stars" style="display:flex;gap:8px;font-size:32px;margin-bottom:14px;color:var(--gold);">
+      <span data-v="1" style="cursor:pointer;">☆</span><span data-v="2" style="cursor:pointer;">☆</span><span data-v="3" style="cursor:pointer;">☆</span><span data-v="4" style="cursor:pointer;">☆</span><span data-v="5" style="cursor:pointer;">☆</span>
+    </div>
+    <textarea id="fb-msg" placeholder="¿Qué mejorarías? ¿Qué te gustó?" style="width:100%;min-height:90px;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn" onclick="dismissFeedback()" style="flex:1;">Ahora no</button>
+      <button class="btn btn-primary" onclick="submitFeedback()" style="flex:1;">Enviar</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1615,6 +1660,9 @@ async function loadAll() {
   applyEspacioNombre();
   poblarSelectsQuien();
   renderIntegrantes();
+  const navAdmin = document.getElementById('nav-admin');
+  if (navAdmin) navAdmin.style.display = (currentUserId === ADMIN_UID) ? '' : 'none';
+  maybeShowFeedback();
 }
 
 // ── Nombre personalizable del espacio (por usuario) ──
@@ -1699,6 +1747,113 @@ async function removeIntegrante(nombre) {
   await persistIntegrantes(miembros);
 }
 
+// ══════════════════════════════════════════════
+// PANEL ADMIN (solo cuenta admin)
+// ══════════════════════════════════════════════
+async function loadAdminStats() {
+  if (currentUserId !== ADMIN_UID) return;
+  const grid = document.getElementById('admin-stats-grid');
+  try {
+    const { data, error } = await sbClient.rpc('admin_stats');
+    if (error) throw error;
+    const s = data || {};
+    const card = (label, val, sub) => `<div class="card" style="padding:16px;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);">${label}</div><div style="font-size:26px;font-weight:700;color:var(--text);margin-top:4px;">${val}</div>${sub ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;">${sub}</div>` : ''}</div>`;
+    const ret = s.total_usuarios ? Math.round(100 * (s.volvieron||0) / s.total_usuarios) : 0;
+    grid.innerHTML = [
+      card('Usuarios', s.total_usuarios ?? 0, `+${s.nuevos_7d||0} esta semana`),
+      card('Activos 7d', s.activos_7d ?? 0, `${s.activos_30d||0} en 30 días`),
+      card('Con datos', s.usuarios_con_datos ?? 0, 'ya registraron algo'),
+      card('Movimientos', s.total_movimientos ?? 0, `+${s.mov_7d||0} en 7 días`),
+      card('Retención', ret + '%', 'volvieron tras registrarse'),
+      card('Comentarios', s.total_feedback ?? 0, 'recibidos')
+    ].join('');
+    const ch = document.getElementById('admin-signups-chart');
+    const arr = s.signups_por_dia || [];
+    const max = Math.max(1, ...arr.map(d => d.n));
+    ch.innerHTML = arr.length
+      ? arr.map(d => `<div title="${d.fecha}: ${d.n}" style="flex:1;background:var(--gold);border-radius:3px 3px 0 0;height:${Math.round(100*d.n/max)}%;min-height:3px;"></div>`).join('')
+      : '<span style="font-size:13px;color:var(--text3)">Sin registros en el periodo.</span>';
+  } catch(e) {
+    grid.innerHTML = '<div class="card" style="color:var(--danger)">No autorizado o error: ' + (e.message || e) + '</div>';
+  }
+  loadAdminConfig();
+  loadAdminFeedback();
+}
+
+async function loadAdminConfig() {
+  try {
+    const { data } = await sbClient.from('app_config').select('clave,valor');
+    const m = {}; (data || []).forEach(r => m[r.clave] = r.valor);
+    const cb = document.getElementById('admin-campaign'); if (cb) cb.checked = (m.feedback_campaign === 'on');
+    const mt = document.getElementById('admin-min-tx'); if (mt) mt.value = m.feedback_min_tx || '10';
+  } catch(e) {}
+}
+
+async function saveCampaign() {
+  const on = document.getElementById('admin-campaign').checked ? 'on' : 'off';
+  const min = String(parseInt(document.getElementById('admin-min-tx').value) || 10);
+  try {
+    await sbClient.from('app_config').upsert([{clave:'feedback_campaign',valor:on},{clave:'feedback_min_tx',valor:min}], { onConflict:'clave' });
+    toast('Configuración guardada ✓', '#1D9E75');
+  } catch(e) { toast('Error: ' + (e.message || e), '#C44B2B'); }
+}
+
+async function loadAdminFeedback() {
+  try {
+    const { data } = await sbClient.from('feedback').select('email,rating,mensaje,created_at').order('created_at', { ascending:false }).limit(100);
+    const list = document.getElementById('admin-feedback-list');
+    document.getElementById('admin-fb-count').textContent = (data || []).length;
+    list.innerHTML = (data && data.length)
+      ? data.map(f => `<div style="border-top:1px solid var(--border);padding:10px 0;"><div style="font-size:13px;color:var(--gold);">${'★'.repeat(f.rating||0)}${'☆'.repeat(5-(f.rating||0))} <span style="color:var(--text3);font-size:12px;">${f.email||''} · ${(f.created_at||'').substring(0,10)}</span></div><div style="font-size:14px;color:var(--text2);margin-top:3px;">${(f.mensaje||'').replace(/</g,'&lt;')}</div></div>`).join('')
+      : '<span style="font-size:13px;color:var(--text3)">Aún no hay comentarios.</span>';
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+// FEEDBACK (todos los usuarios)
+// ══════════════════════════════════════════════
+let fbRating = 0;
+function initFbStars() {
+  const c = document.getElementById('fb-stars'); if (!c) return;
+  fbRating = 0;
+  c.querySelectorAll('span').forEach(s => {
+    s.textContent = '☆';
+    s.onclick = () => { fbRating = +s.dataset.v; c.querySelectorAll('span').forEach(x => x.textContent = (+x.dataset.v <= fbRating) ? '★' : '☆'); };
+  });
+}
+
+async function maybeShowFeedback() {
+  if (currentUserId === ADMIN_UID) return;
+  const flag = localStorage.getItem('metta_fb_done');
+  if (flag === '1') return;
+  if (flag && Date.now() < Number(flag)) return;
+  let count = 0;
+  try { const r = await sbClient.from('transacciones').select('id', { count:'exact', head:true }); count = r.count || 0; } catch(e) {}
+  let campaign = 'off', minTx = 10;
+  try { const { data } = await sbClient.from('app_config').select('clave,valor'); (data||[]).forEach(r => { if (r.clave==='feedback_campaign') campaign=r.valor; if (r.clave==='feedback_min_tx') minTx=parseInt(r.valor)||10; }); } catch(e) {}
+  if (campaign === 'on' || count >= minTx) {
+    document.getElementById('fb-msg').value = '';
+    initFbStars();
+    document.getElementById('modal-feedback').classList.remove('hidden');
+  }
+}
+
+async function submitFeedback() {
+  const msg = (document.getElementById('fb-msg').value || '').trim();
+  if (!fbRating && !msg) { toast('Pon estrellas o escribe algo', '#C44B2B'); return; }
+  try {
+    await sbClient.from('feedback').insert({ user_id: currentUserId, email: currentUserEmail, rating: fbRating || null, mensaje: msg || null });
+  } catch(e) {}
+  localStorage.setItem('metta_fb_done', '1');
+  document.getElementById('modal-feedback').classList.add('hidden');
+  toast('¡Gracias por tu comentario! 🙌', '#1D9E75');
+}
+
+function dismissFeedback() {
+  localStorage.setItem('metta_fb_done', String(Date.now() + 3*86400000));
+  document.getElementById('modal-feedback').classList.add('hidden');
+}
+
 function parseMonto(val) {
   if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') return val;
@@ -1763,6 +1918,7 @@ function showPage(id, el) {
   if(id==='meta') renderMetaPage();
   if(id==='patrimonio') renderPatrimonio();
   if(id==='tarjetas') renderTarjetas();
+  if(id==='admin') loadAdminStats();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
