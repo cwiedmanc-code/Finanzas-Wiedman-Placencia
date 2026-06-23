@@ -849,6 +849,10 @@ html { overflow-x: hidden; }
           <button onclick="changeMonth(1)">&#8594;</button>
         </div>
       </div>
+      <div id="pendientes-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#0C1426,#16223d);color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:16px;border:1px solid rgba(196,159,83,0.4);">
+        <span style="display:flex;align-items:center;gap:10px;font-size:14px;"><span style="width:9px;height:9px;border-radius:50%;background:var(--gold);flex-shrink:0;"></span>Tienes <strong class="pb-n">0</strong> gasto(s) por confirmar</span>
+        <button class="btn btn-primary" onclick="abrirPendientes()" style="padding:8px 16px;white-space:nowrap;">Revisar</button>
+      </div>
       <div class="metrics" id="dash-metrics">
         <div class="metric acc-ing"><div class="m-label">Ingresos</div><div class="m-value m-pos" id="m-ing">—</div></div>
         <div class="metric acc-gas"><div class="m-label">Gastos</div><div class="m-value m-neg" id="m-gas">—</div></div>
@@ -1266,6 +1270,49 @@ html { overflow-x: hidden; }
       <span class="bn-lbl">Config</span>
     </button>
   </nav>
+</div>
+
+<!-- ── Modal Gasto detectado (pendiente) ── -->
+<div class="modal-overlay hidden" id="modal-pendiente">
+  <div class="modal" style="max-width:430px;">
+    <div style="font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Gasto detectado · <span id="pend-progreso"></span></div>
+    <div class="card-title" style="margin-bottom:12px;">Confirma y categoriza</div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Comercio</div>
+      <div id="pend-comercio" style="font-size:17px;font-weight:600;color:var(--text);">—</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Monto (CLP)</label>
+        <input type="number" id="pend-monto" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;">
+      </div>
+      <div style="flex:1;">
+        <label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Fecha</label>
+        <input type="date" id="pend-fecha" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Descripción</label>
+      <input type="text" id="pend-desc" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <div style="flex:1;">
+        <label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Categoría</label>
+        <select id="pend-cat" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;background:var(--surface);color:var(--text);">
+          <option>Alimentación</option><option>Transporte</option><option>Vivienda</option><option>Salud</option><option>Educación</option><option>Servicios básicos</option><option>Entretenimiento</option><option>Deudas</option><option>Pago Tarjeta</option><option>Familia</option><option>Otros</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">¿Quién?</label>
+        <select id="pend-quien" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;background:var(--surface);color:var(--text);"></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" onclick="descartarPendiente()" style="flex:1;">Descartar</button>
+      <button class="btn btn-primary" onclick="confirmarPendiente()" style="flex:1;">Registrar gasto</button>
+    </div>
+    <div onclick="cerrarPendientes()" style="text-align:center;margin-top:12px;font-size:13px;color:var(--text3);cursor:pointer;">Más tarde</div>
+  </div>
 </div>
 
 <!-- ── Modal Feedback ── -->
@@ -1713,6 +1760,7 @@ async function loadAll() {
   if (navAdmin) navAdmin.style.display = esAdmin ? '' : 'none';
   const cfgAdminCard = document.getElementById('cfg-admin-card');
   if (cfgAdminCard) cfgAdminCard.style.display = esAdmin ? '' : 'none';
+  loadPendientes();
   maybeShowFeedback();
 }
 
@@ -1752,7 +1800,7 @@ function getIntegrantes() {
 function poblarSelectsQuien() {
   const opts = getIntegrantes().concat(['Ambos']);
   const html = opts.map(m => `<option>${m}</option>`).join('');
-  ['etx-quien','tc-quien','tc-compra-quien','g-quien','i-quien','a-quien','ptc-quien'].forEach(id => {
+  ['etx-quien','tc-quien','tc-compra-quien','g-quien','i-quien','a-quien','ptc-quien','pend-quien'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const prev = sel.value;
@@ -1903,6 +1951,56 @@ async function submitFeedback() {
 function dismissFeedback() {
   localStorage.setItem('metta_fb_done', String(Date.now() + 3*86400000));
   document.getElementById('modal-feedback').classList.add('hidden');
+}
+
+// ══════════════════════════════════════════════
+// GASTOS DETECTADOS (pendientes de confirmar)
+// ══════════════════════════════════════════════
+let _pendientes = [], _pendIdx = 0;
+async function loadPendientes() {
+  if (!SCRIPT_URL) return;
+  try {
+    const { data } = await sbClient.from('pendientes').select('*').eq('estado','pendiente').order('created_at', { ascending:true });
+    _pendientes = data || [];
+  } catch(e) { _pendientes = []; }
+  renderPendientesBanner();
+}
+function renderPendientesBanner() {
+  const b = document.getElementById('pendientes-banner'); if (!b) return;
+  if (_pendientes.length) { b.style.display = 'flex'; const n = b.querySelector('.pb-n'); if (n) n.textContent = _pendientes.length; }
+  else b.style.display = 'none';
+}
+function abrirPendientes() { _pendIdx = 0; mostrarPendiente(); }
+function cerrarPendientes() { document.getElementById('modal-pendiente').classList.add('hidden'); }
+function mostrarPendiente() {
+  const modal = document.getElementById('modal-pendiente');
+  if (_pendIdx >= _pendientes.length) { modal.classList.add('hidden'); loadPendientes(); return; }
+  const p = _pendientes[_pendIdx];
+  document.getElementById('pend-comercio').textContent = p.comercio || '—';
+  document.getElementById('pend-monto').value = p.monto || 0;
+  document.getElementById('pend-fecha').value = p.fecha || `${curYear}-${pad(curMonth)}-${pad(new Date().getDate())}`;
+  document.getElementById('pend-desc').value = p.descripcion || p.comercio || '';
+  document.getElementById('pend-progreso').textContent = `${_pendIdx+1} de ${_pendientes.length}`;
+  poblarSelectsQuien();
+  modal.classList.remove('hidden');
+}
+async function confirmarPendiente() {
+  const p = _pendientes[_pendIdx]; if (!p) return;
+  const monto = parseInt(document.getElementById('pend-monto').value) || 0;
+  const cat   = document.getElementById('pend-cat').value;
+  const quien = document.getElementById('pend-quien').value;
+  const desc  = document.getElementById('pend-desc').value;
+  const fecha = document.getElementById('pend-fecha').value;
+  if (SCRIPT_URL) await apiPost({ action:'addTx', data:{ fecha, tipo:'gasto', categoria:cat, descripcion:desc, monto, quien, recurrente:false } });
+  try { await sbClient.from('pendientes').update({ estado:'procesado' }).eq('id', p.id); } catch(e) {}
+  toast('Gasto registrado ✓', '#1D9E75');
+  _pendIdx++; mostrarPendiente();
+  loadTx().then(() => { renderDashboard(); renderHistorial(); renderTodayList(); });
+}
+async function descartarPendiente() {
+  const p = _pendientes[_pendIdx]; if (!p) return;
+  try { await sbClient.from('pendientes').update({ estado:'descartado' }).eq('id', p.id); } catch(e) {}
+  _pendIdx++; mostrarPendiente();
 }
 
 function parseMonto(val) {
