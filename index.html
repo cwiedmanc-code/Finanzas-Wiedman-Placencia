@@ -1172,6 +1172,11 @@ html { overflow-x: hidden; }
     <!-- ══════════ CONFIG ══════════ -->
     <div class="page" id="page-config">
       <div class="page-header"><div class="page-title">Configuración</div></div>
+      <div class="card" id="cfg-admin-card" style="display:none;border:1px solid var(--gold);">
+        <div class="card-title">Administración</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Métricas de uso, usuarios y comentarios. Solo tú ves esto.</p>
+        <button class="btn btn-primary" onclick="showPage('admin')">Abrir panel Admin →</button>
+      </div>
       <div class="card">
         <div class="card-title">Nombre de tus finanzas</div>
         <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Personaliza cómo se llama tu espacio (aparece en el encabezado del Dashboard). Ej: "Finanzas Familia Pérez" o "Mis finanzas".</p>
@@ -1703,8 +1708,11 @@ async function loadAll() {
   applyEspacioNombre();
   poblarSelectsQuien();
   renderIntegrantes();
+  const esAdmin = (currentUserId === ADMIN_UID);
   const navAdmin = document.getElementById('nav-admin');
-  if (navAdmin) navAdmin.style.display = (currentUserId === ADMIN_UID) ? '' : 'none';
+  if (navAdmin) navAdmin.style.display = esAdmin ? '' : 'none';
+  const cfgAdminCard = document.getElementById('cfg-admin-card');
+  if (cfgAdminCard) cfgAdminCard.style.display = esAdmin ? '' : 'none';
   maybeShowFeedback();
 }
 
