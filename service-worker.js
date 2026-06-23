@@ -1,6 +1,6 @@
 // ── VERSIÓN: cambia este número cada vez que hagas un deploy ──
 // Ej: poritos-v2, poritos-v3, poritos-v4...
-const CACHE = 'metta-v22';
+const CACHE = 'metta-v23';
 
 const ASSETS = [
   '/Finanzas-Wiedman-Placencia/',
@@ -12,8 +12,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  // NO llamar skipWaiting() aquí — así el nuevo SW espera
-  // y la app puede mostrar el banner de actualización
+  self.skipWaiting(); // activar de inmediato → la app se actualiza sola al reabrir
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(() => {}));
 });
 
