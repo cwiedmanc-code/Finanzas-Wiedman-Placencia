@@ -1,13 +1,14 @@
 // ── VERSIÓN: cambia este número cada vez que hagas un deploy ──
 // Ej: poritos-v2, poritos-v3, poritos-v4...
-const CACHE = 'poritos-v20';
+const CACHE = 'metta-v21';
 
 const ASSETS = [
   '/Finanzas-Wiedman-Placencia/',
   '/Finanzas-Wiedman-Placencia/index.html',
   '/Finanzas-Wiedman-Placencia/manifest.json',
   '/Finanzas-Wiedman-Placencia/icon-192.png',
-  '/Finanzas-Wiedman-Placencia/icon-512.png'
+  '/Finanzas-Wiedman-Placencia/icon-512.png',
+  '/Finanzas-Wiedman-Placencia/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', e => {

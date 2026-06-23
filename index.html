@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Finanzas Poritos</title>
+<title>METTA</title>
 <meta name="theme-color" content="#1A1714">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Finanzas">
+<meta name="apple-mobile-web-app-title" content="METTA">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!-- ── Supabase (backend multi-usuario) ── -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -17,6 +17,7 @@
   const SB_KEY = 'sb_publishable_09zpbwB8P1YdxUbRlcvjkA_fBGs87O8';
   const sbClient = window.supabase.createClient(SB_URL, SB_KEY);
   let currentUserId = null;
+  let currentUserEmail = '';
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -472,7 +473,7 @@ html { overflow-x: hidden; }
 
 <div id="login-screen">
   <div class="login-box">
-    <div class="login-title">Finanzas Poritos</div>
+    <div class="login-title">METTA</div>
     <div class="login-sub" id="login-sub">Inicia sesión</div>
     <div class="login-field">
       <label>Email</label>
@@ -718,11 +719,11 @@ html { overflow-x: hidden; }
     <div class="sidebar-logo">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
         <div style="width:36px;height:36px;border-radius:50%;background:var(--navy2);border:1px solid rgba(196,159,83,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-size:13px;font-weight:700;color:#fff;letter-spacing:-0.5px;">W<span style="color:var(--gold)">P</span></span>
+          <span style="font-size:18px;font-weight:700;color:var(--gold);letter-spacing:-0.5px;">M</span>
         </div>
         <div>
-          <div class="name">Wiedman Placencia</div>
-          <div class="sub">Finanzas Familiares</div>
+          <div class="name">METTA</div>
+          <div class="sub">Finanzas personales</div>
         </div>
       </div>
       <div style="font-size:11px;color:rgba(255,255,255,0.35);display:flex;align-items:center;gap:5px;"><span class="status-dot status-online" id="conn-dot"></span><span id="conn-label">Conectando...</span></div>
@@ -755,7 +756,7 @@ html { overflow-x: hidden; }
     <!-- ══════════ DASHBOARD ══════════ -->
     <div class="page active" id="page-dashboard">
       <div class="page-header">
-        <div class="page-title">Wiedman &amp; Placencia</div>
+        <div class="page-title" id="espacio-title">Mis finanzas</div>
         <div class="month-nav">
           <button onclick="changeMonth(-1)">&#8592;</button>
           <div class="month-label" id="dash-month"></div>
@@ -1086,26 +1087,18 @@ html { overflow-x: hidden; }
     <div class="page" id="page-config">
       <div class="page-header"><div class="page-title">Configuración</div></div>
       <div class="card">
-        <div class="card-title">Conexión Google Sheets</div>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Pega la URL del Web App de Google Apps Script para activar la sincronización en tiempo real con tu planilla compartida.</p>
+        <div class="card-title">Nombre de tus finanzas</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Personaliza cómo se llama tu espacio (aparece en el encabezado del Dashboard). Ej: "Finanzas Familia Pérez" o "Mis finanzas".</p>
         <div class="field" style="margin-bottom:12px">
-          <label>URL del Apps Script (Web App)</label>
-          <input type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+          <label>Nombre del espacio</label>
+          <input type="text" id="cfg-espacio" placeholder="Mis finanzas" maxlength="40">
         </div>
-        <button class="btn btn-primary" onclick="saveConfig()">Guardar conexión</button>
+        <button class="btn btn-primary" onclick="saveEspacioNombre()">Guardar nombre</button>
         <div id="cfg-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
       </div>
       <div class="card">
-        <div class="card-title">Cómo configurar (5 pasos)</div>
-        <ol style="font-size:13px;color:var(--text2);line-height:2;padding-left:18px">
-          <li>Crea un Google Sheets nuevo y nómbralo <strong>"Finanzas Poritos"</strong></li>
-          <li>Ve a <strong>Extensiones → Apps Script</strong></li>
-          <li>Borra el código que aparece y pega el contenido del archivo <code>Code.gs</code></li>
-          <li>Ejecuta la función <code>inicializarHojas()</code> una vez (botón ▶ Run)</li>
-          <li>Ve a <strong>Implementar → Nueva implementación → Aplicación web</strong></li>
-          <li>En "Quién tiene acceso" elige <strong>"Cualquier persona"</strong>, copia la URL y pégala arriba</li>
-          <li>Comparte el Google Sheet con tu pareja con permiso de edición</li>
-        </ol>
+        <div class="card-title">Tu cuenta</div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6">Sesión iniciada como <strong id="cfg-email">—</strong>.<br>Tus datos son privados: solo tú ves tu información.</p>
       </div>
       <div class="card" style="border-color:var(--danger);margin-top:8px;">
         <div class="card-title" style="color:var(--danger)">Sesión</div>
@@ -1258,6 +1251,7 @@ async function doAuth() {
     const session = res.data && res.data.session;
     if (!session) { errEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla.'; return; }
     currentUserId = session.user.id;
+    currentUserEmail = session.user.email || '';
     SCRIPT_URL = 'supabase';
     errEl.textContent = '';
     document.getElementById('login-screen').classList.add('hidden');
@@ -1302,6 +1296,7 @@ window.addEventListener('load', async () => {
     const { data } = await sbClient.auth.getSession();
     if (data && data.session) {
       currentUserId = data.session.user.id;
+      currentUserEmail = data.session.user.email || '';
       SCRIPT_URL = 'supabase';
       document.getElementById('login-screen').classList.add('hidden');
       checkConnection();
@@ -1567,6 +1562,31 @@ async function loadAll() {
   renderAutoTips();
   renderPatrimonio();
   renderTarjetas();
+  applyEspacioNombre();
+}
+
+// ── Nombre personalizable del espacio (por usuario) ──
+function applyEspacioNombre() {
+  const nombre = (metaData && metaData.espacio_nombre) ? String(metaData.espacio_nombre) : 'Mis finanzas';
+  const titleEl = document.getElementById('espacio-title');
+  if (titleEl) titleEl.textContent = nombre;
+  const inp = document.getElementById('cfg-espacio');
+  if (inp && !inp.value) inp.value = (metaData && metaData.espacio_nombre) ? nombre : '';
+  const emailEl = document.getElementById('cfg-email');
+  if (emailEl) emailEl.textContent = currentUserEmail || '—';
+}
+
+async function saveEspacioNombre() {
+  const inp = document.getElementById('cfg-espacio');
+  const nombre = (inp.value || '').trim();
+  if (!nombre) { toast('Escribe un nombre', '#C44B2B'); return; }
+  metaData = metaData || {};
+  metaData.espacio_nombre = nombre;
+  const titleEl = document.getElementById('espacio-title');
+  if (titleEl) titleEl.textContent = nombre;
+  if (SCRIPT_URL) { await apiPost({ action:'updateMeta', data:{ espacio_nombre: nombre } }); }
+  document.getElementById('cfg-status').textContent = '✓ Nombre guardado';
+  toast('Nombre actualizado ✓', '#1D9E75');
 }
 
 function parseMonto(val) {

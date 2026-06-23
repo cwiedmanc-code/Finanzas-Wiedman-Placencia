@@ -1,7 +1,7 @@
 {
-  "name": "Finanzas Poritos",
-  "short_name": "Finanzas",
-  "description": "Sistema de finanzas familiares",
+  "name": "METTA",
+  "short_name": "METTA",
+  "description": "METTA — tus finanzas personales, ordenadas.",
   "start_url": "/Finanzas-Wiedman-Placencia/",
   "scope": "/Finanzas-Wiedman-Placencia/",
   "display": "standalone",
@@ -19,7 +19,4 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
-}
+  
