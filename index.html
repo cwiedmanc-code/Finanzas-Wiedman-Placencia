@@ -534,6 +534,25 @@ html { overflow-x: hidden; }
 #update-banner .ub-btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
 #update-banner .ub-x { background:none; border:none; color:rgba(255,255,255,0.55); font-size:20px; line-height:1; cursor:pointer; padding:0 2px; }
 @media (max-width:480px){ #update-banner { font-size:13px; gap:10px; padding:11px 12px; } #update-banner .ub-txt span.ub-long { display:none; } }
+/* ── Banner de gastos por confirmar ── */
+#pendientes-banner { display:none; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px; border-radius:14px; cursor:pointer; color:#fff; background:linear-gradient(120deg,#0C1426,#1b2c4d); border:1px solid rgba(196,159,83,0.45); box-shadow:0 8px 24px rgba(12,20,38,0.22); margin-bottom:16px; position:relative; overflow:hidden; animation:pbIn .5s ease both, pbGlow 2.8s ease-in-out infinite; }
+#pendientes-banner::after { content:""; position:absolute; top:0; left:-60%; width:45%; height:100%; background:linear-gradient(100deg, transparent, rgba(196,159,83,0.16), transparent); transform:skewX(-20deg); animation:pbShine 4s ease-in-out infinite; pointer-events:none; }
+.pb-left { display:flex; align-items:center; gap:12px; z-index:1; }
+.pb-icon { width:40px; height:40px; border-radius:50%; background:rgba(196,159,83,0.16); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.pb-icon svg { width:22px; height:22px; color:#C49F53; animation:pbBell 3s ease-in-out infinite; transform-origin:50% 12%; }
+.pb-title { font-size:15px; font-weight:600; letter-spacing:.2px; }
+.pb-sub { font-size:12.5px; color:rgba(255,255,255,0.65); margin-top:1px; }
+.pb-n { color:#C49F53; }
+.pb-cta { z-index:1; flex-shrink:0; background:linear-gradient(135deg,#D9B968,#C49F53); color:#0C1426; border:none; border-radius:10px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(196,159,83,0.35); transition:transform .15s; }
+.pb-cta:hover { transform:translateY(-1px); }
+.pb-arrow { display:inline-block; animation:pbArrow 1.4s ease-in-out infinite; }
+@keyframes pbIn { from{opacity:0;transform:translateY(-10px);} to{opacity:1;transform:translateY(0);} }
+@keyframes pbGlow { 0%,100%{box-shadow:0 8px 24px rgba(12,20,38,0.22),0 0 0 0 rgba(196,159,83,0);} 50%{box-shadow:0 8px 28px rgba(12,20,38,0.3),0 0 0 3px rgba(196,159,83,0.16);} }
+@keyframes pbShine { 0%{left:-60%;} 55%,100%{left:130%;} }
+@keyframes pbBell { 0%,86%,100%{transform:rotate(0);} 88%{transform:rotate(13deg);} 91%{transform:rotate(-11deg);} 94%{transform:rotate(8deg);} 97%{transform:rotate(-5deg);} }
+@keyframes pbArrow { 0%,100%{transform:translateX(0);} 50%{transform:translateX(4px);} }
+@media (max-width:480px){ .pb-sub { display:none; } .pb-title { font-size:14px; } }
+@media (prefers-reduced-motion: reduce){ #pendientes-banner, #pendientes-banner::after, .pb-icon svg, .pb-arrow { animation:none!important; } }
 @media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
@@ -849,9 +868,15 @@ html { overflow-x: hidden; }
           <button onclick="changeMonth(1)">&#8594;</button>
         </div>
       </div>
-      <div id="pendientes-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#0C1426,#16223d);color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:16px;border:1px solid rgba(196,159,83,0.4);">
-        <span style="display:flex;align-items:center;gap:10px;font-size:14px;"><span style="width:9px;height:9px;border-radius:50%;background:var(--gold);flex-shrink:0;"></span>Tienes <strong class="pb-n">0</strong> gasto(s) por confirmar</span>
-        <button class="btn btn-primary" onclick="abrirPendientes()" style="padding:8px 16px;white-space:nowrap;">Revisar</button>
+      <div id="pendientes-banner" onclick="abrirPendientes()">
+        <div class="pb-left">
+          <div class="pb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+          <div class="pb-text">
+            <div class="pb-title">Gastos por confirmar</div>
+            <div class="pb-sub"><strong class="pb-n">0</strong> movimiento(s) detectado(s) esperan tu revisión</div>
+          </div>
+        </div>
+        <button class="pb-cta" onclick="event.stopPropagation();abrirPendientes()">Revisar <span class="pb-arrow">→</span></button>
       </div>
       <div class="metrics" id="dash-metrics">
         <div class="metric acc-ing"><div class="m-label">Ingresos</div><div class="m-value m-pos" id="m-ing">—</div></div>
