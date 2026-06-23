@@ -10,6 +10,14 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- ── Supabase (backend multi-usuario) ── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SB_URL = 'https://ixzibeszedeeyoxqmndm.supabase.co';
+  const SB_KEY = 'sb_publishable_09zpbwB8P1YdxUbRlcvjkA_fBGs87O8';
+  const sbClient = window.supabase.createClient(SB_URL, SB_KEY);
+  let currentUserId = null;
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -465,24 +473,25 @@ html { overflow-x: hidden; }
 <div id="login-screen">
   <div class="login-box">
     <div class="login-title">Finanzas Poritos</div>
-    <div class="login-sub">Inicia sesión</div>
+    <div class="login-sub" id="login-sub">Inicia sesión</div>
     <div class="login-field">
-      <label>Usuario</label>
-      <input type="text" id="login-user" placeholder="usuario" autocomplete="username">
+      <label>Email</label>
+      <input type="email" id="login-user" placeholder="tucorreo@ejemplo.com" autocomplete="username">
     </div>
     <div class="login-field">
       <label>Contraseña</label>
       <div style="position:relative;">
-        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:40px;">
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()" style="padding-right:40px;">
         <button type="button" onclick="togglePassVisibility()" id="toggle-pass-btn" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:#888;padding:0;line-height:1;" title="Mostrar/ocultar contraseña">👁</button>
       </div>
     </div>
     <label class="login-remember">
       <input type="checkbox" id="login-remember" checked>
-      Recordar credenciales en este dispositivo
+      Mantener sesión iniciada en este dispositivo
     </label>
-    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <button class="login-btn" id="login-btn-main" onclick="doAuth()">Entrar</button>
     <div class="login-error" id="login-error"></div>
+    <div id="login-toggle" onclick="toggleAuthMode()" style="text-align:center;margin-top:14px;font-size:13px;color:var(--accent);cursor:pointer;">¿No tienes cuenta? Crear una</div>
   </div>
 </div>
 
@@ -1216,25 +1225,51 @@ let localMeta = JSON.parse(localStorage.getItem('poritos_meta') || JSON.stringif
 // ══════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════
-const USERS = { pori: 'poritos2026', roci: 'poritos2026', admin: 'poritos2026' };
+let authMode = 'login'; // 'login' | 'signup'
 
-function doLogin() {
-  const user = (document.getElementById('login-user').value || '').trim().toLowerCase();
-  const pass = document.getElementById('login-pass').value;
-  const remember = document.getElementById('login-remember').checked;
-  const errEl = document.getElementById('login-error');
-
-  if (!USERS[user] || USERS[user] !== pass) {
-    errEl.textContent = 'Usuario o contraseña incorrectos';
-    document.getElementById('login-pass').value = '';
-    return;
-  }
-  errEl.textContent = '';
-  if (remember) {
-    localStorage.setItem('poritos_auth', JSON.stringify({ user, ts: Date.now() }));
-  }
-  document.getElementById('login-screen').classList.add('hidden');
+function toggleAuthMode() {
+  authMode = (authMode === 'login') ? 'signup' : 'login';
+  document.getElementById('login-sub').textContent      = authMode === 'login' ? 'Inicia sesión' : 'Crear cuenta';
+  document.getElementById('login-btn-main').textContent = authMode === 'login' ? 'Entrar' : 'Crear cuenta';
+  document.getElementById('login-toggle').textContent   = authMode === 'login' ? '¿No tienes cuenta? Crear una' : '¿Ya tienes cuenta? Inicia sesión';
+  document.getElementById('login-error').textContent = '';
 }
+
+function traduceAuthError(m) {
+  m = m || '';
+  if (/Invalid login/i.test(m)) return 'Email o contraseña incorrectos';
+  if (/already registered|already exists/i.test(m)) return 'Ese email ya tiene cuenta. Inicia sesión.';
+  if (/at least 6|Password should/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres';
+  if (/valid email|invalid format/i.test(m)) return 'Email inválido';
+  return m;
+}
+
+async function doAuth() {
+  const email = (document.getElementById('login-user').value || '').trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  if (!email || !pass) { errEl.textContent = 'Ingresa email y contraseña'; return; }
+  errEl.textContent = (authMode === 'signup') ? 'Creando cuenta…' : 'Entrando…';
+  try {
+    const res = (authMode === 'signup')
+      ? await sbClient.auth.signUp({ email, password: pass })
+      : await sbClient.auth.signInWithPassword({ email, password: pass });
+    if (res.error) { errEl.textContent = traduceAuthError(res.error.message); return; }
+    const session = res.data && res.data.session;
+    if (!session) { errEl.textContent = 'Cuenta creada. Revisa tu correo para confirmarla.'; return; }
+    currentUserId = session.user.id;
+    SCRIPT_URL = 'supabase';
+    errEl.textContent = '';
+    document.getElementById('login-screen').classList.add('hidden');
+    checkConnection();
+    loadAll();
+  } catch(e) {
+    errEl.textContent = 'Error de conexión: ' + (e.message || e);
+  }
+}
+
+// Alias por compatibilidad con llamadas antiguas
+function doLogin() { return doAuth(); }
 
 function togglePassVisibility() {
   const inp = document.getElementById('login-pass');
@@ -1243,8 +1278,10 @@ function togglePassVisibility() {
   else { inp.type = 'password'; btn.textContent = '👁'; }
 }
 
-function logout() {
-  localStorage.removeItem('poritos_auth');
+async function logout() {
+  try { await sbClient.auth.signOut(); } catch(e) {}
+  currentUserId = null;
+  SCRIPT_URL = '';
   document.getElementById('login-user').value = '';
   document.getElementById('login-pass').value = '';
   document.getElementById('login-error').textContent = '';
@@ -1254,22 +1291,26 @@ function logout() {
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
-window.addEventListener('load', () => {
-  // Verificar sesión guardada
-  const auth = JSON.parse(localStorage.getItem('poritos_auth') || 'null');
-  if (!auth || !USERS[auth.user]) {
-    document.getElementById('login-screen').classList.remove('hidden');
-  } else {
-    document.getElementById('login-screen').classList.add('hidden');
-  }
-
+window.addEventListener('load', async () => {
   initDates();
   buildQuickCats();
-  checkConnection();
-  loadAll();
-  if (SCRIPT_URL) {
-    document.getElementById('config-banner').classList.add('hidden');
-    document.getElementById('cfg-url').value = SCRIPT_URL;
+  const banner = document.getElementById('config-banner');
+  if (banner) banner.classList.add('hidden');
+
+  // Restaurar sesión de Supabase
+  try {
+    const { data } = await sbClient.auth.getSession();
+    if (data && data.session) {
+      currentUserId = data.session.user.id;
+      SCRIPT_URL = 'supabase';
+      document.getElementById('login-screen').classList.add('hidden');
+      checkConnection();
+      loadAll();
+    } else {
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+  } catch(e) {
+    document.getElementById('login-screen').classList.remove('hidden');
   }
 });
 
@@ -1291,17 +1332,10 @@ function fmtK(n){ return Math.round(n).toLocaleString('es-CL'); }
 async function checkConnection() {
   const dot = document.getElementById('conn-dot');
   const lbl = document.getElementById('conn-label');
-  if (!SCRIPT_URL) { lbl.textContent = 'Sin conectar'; dot.style.background = '#FFA726'; return; }
-  try {
-    const r = await fetch(`${SCRIPT_URL}?action=getSummary&year=${curYear}&month=${curMonth}`);
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    lbl.textContent = 'Conectado';
-    dot.style.background = '#4CAF50';
-  } catch(e) {
-    lbl.textContent = 'Sin conexión';
-    dot.style.background = '#E53935';
-  }
+  if (!dot || !lbl) return;
+  if (!SCRIPT_URL || !currentUserId) { lbl.textContent = 'Sin conectar'; dot.style.background = '#FFA726'; return; }
+  lbl.textContent = 'Conectado';
+  dot.style.background = '#4CAF50';
 }
 
 function saveScriptUrl() {
@@ -1331,17 +1365,194 @@ function saveConfig() {
 // ══════════════════════════════════════════════
 // API CALLS
 // ══════════════════════════════════════════════
+function _num(v){ const n = Number(v); return isNaN(n) ? 0 : n; }
+
+// ── GET → Supabase (mismas formas de retorno que el backend antiguo) ──
 async function apiGet(params) {
   if (!SCRIPT_URL) return null;
-  const qs = new URLSearchParams(params).toString();
-  const r = await fetch(`${SCRIPT_URL}?${qs}`);
-  return r.json();
+  const action = params.action;
+  try {
+    if (action === 'getTx') {
+      let q = sbClient.from('transacciones').select('*');
+      if (params.year && params.month) {
+        q = q.like('fecha', `${params.year}-${pad(params.month)}%`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = (data||[]).map((r,i) => ({
+        ID:r.id, Fecha:r.fecha, Tipo:r.tipo, Categoria:r.categoria,
+        Descripcion:r.descripcion, Monto:_num(r.monto), Quien:r.quien,
+        Recurrente: r.recurrente ? 'Sí' : 'No', Timestamp:r.timestamp, _row:i+2
+      }));
+      return { rows };
+    }
+    if (action === 'getMeta') {
+      const { data, error } = await sbClient.from('meta').select('parametro,valor');
+      if (error) throw error;
+      const meta = { precio_objetivo:0, pie_pct:20, ahorro_acumulado:0, ingreso_mensual:0 };
+      (data||[]).forEach(r => {
+        const n = Number(r.valor);
+        meta[r.parametro] = (r.valor !== '' && r.valor !== null && !isNaN(n)) ? n : r.valor;
+      });
+      return meta;
+    }
+    if (action === 'getSummary') {
+      const tx = await apiGet({ action:'getTx', year:params.year, month:params.month });
+      const rows = (tx && tx.rows) || [];
+      const ingresos = rows.filter(r=>r.Tipo==='ingreso').reduce((s,r)=>s+_num(r.Monto),0);
+      const gastos   = rows.filter(r=>r.Tipo==='gasto').reduce((s,r)=>s+_num(r.Monto),0);
+      const ahorros  = rows.filter(r=>r.Tipo==='ahorro').reduce((s,r)=>s+_num(r.Monto),0);
+      const catMap = {};
+      rows.filter(r=>r.Tipo==='gasto').forEach(r=>{ catMap[r.Categoria]=(catMap[r.Categoria]||0)+_num(r.Monto); });
+      return { ingresos, gastos, ahorros, libre: ingresos-gastos-ahorros, catMap };
+    }
+    if (action === 'getPatrimonio') {
+      const [a,p] = await Promise.all([
+        sbClient.from('activos').select('*'),
+        sbClient.from('pasivos').select('*')
+      ]);
+      if (a.error) throw a.error;
+      if (p.error) throw p.error;
+      const activos = (a.data||[]).map(r => ({
+        id:r.id, tipo:r.tipo, nombre:r.nombre, valor_mercado:_num(r.valor_mercado),
+        descripcion:r.descripcion||'', anio_compra:r.anio_compra||'', arriendo:_num(r.arriendo),
+        institucion:r.institucion||'', aporte:_num(r.aporte), updated:r.updated||''
+      }));
+      const pasivos = (p.data||[]).map(r => ({
+        id:r.id, tipo:r.tipo, nombre:r.nombre, banco:r.banco||'',
+        saldo_pendiente:_num(r.saldo_pendiente), cuota_mensual:_num(r.cuota_mensual),
+        tasa_anual:_num(r.tasa_anual), cuotas_pagadas:_num(r.cuotas_pagadas),
+        cuotas_totales:_num(r.cuotas_totales), fecha_inicio:r.fecha_inicio||'',
+        activo_id:r.activo_id||'', updated:r.updated||''
+      }));
+      return { activos, pasivos };
+    }
+    if (action === 'getTarjetas') {
+      const [t,c,pg] = await Promise.all([
+        sbClient.from('tarjetas').select('*'),
+        sbClient.from('compras_tc').select('*'),
+        sbClient.from('pagos_tc').select('*')
+      ]);
+      if (t.error) throw t.error;
+      if (c.error) throw c.error;
+      if (pg.error) throw pg.error;
+      const tarjetas = (t.data||[]).map(r => ({
+        id:r.id, nombre:r.nombre, banco:r.banco||'', limite:_num(r.limite),
+        fecha_corte:_num(r.fecha_corte)||25, fecha_pago:_num(r.fecha_pago)||10,
+        color_idx:_num(r.color_idx), quien:r.quien||'', updated:r.updated||''
+      }));
+      const compras = (c.data||[]).map(r => ({
+        id:r.id, tarjeta_id:r.tarjeta_id, descripcion:r.descripcion||'', tienda:r.tienda||'',
+        monto_total:_num(r.monto_total), cuotas_totales:_num(r.cuotas_totales)||1,
+        monto_por_cuota:_num(r.monto_por_cuota), fecha_compra:r.fecha_compra||'',
+        fecha_primera_cuota: r.fecha_primera_cuota||null, categoria:r.categoria||'',
+        tasa_interes:_num(r.tasa_interes), quien:r.quien||'', updated:r.updated||'',
+        cuotas_pagadas:_num(r.cuotas_pagadas)
+      }));
+      const pagosTC = (pg.data||[]).map(r => ({
+        id:r.id, tarjeta_id:r.tarjeta_id, monto:_num(r.monto), fecha:r.fecha||'',
+        descripcion:r.descripcion||'', quien:r.quien||''
+      }));
+      return { tarjetas, compras, pagosTC };
+    }
+    return { error: 'Accion desconocida: ' + action };
+  } catch(e) {
+    return { error: e.message || String(e) };
+  }
 }
 
+// ── POST → Supabase ──
 async function apiPost(body) {
   if (!SCRIPT_URL) return null;
-  const r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(body) });
-  return r.json();
+  const action = body.action;
+  const uid = currentUserId;
+  const now = new Date().toISOString();
+  try {
+    if (action === 'addTx') {
+      const d = body.data;
+      const id = 'TX' + Date.now();
+      const { error } = await sbClient.from('transacciones').insert({
+        id, user_id:uid, fecha:d.fecha, tipo:d.tipo, categoria:d.categoria,
+        descripcion:d.descripcion, monto: parseInt(d.monto,10)||0, quien:d.quien,
+        recurrente: !!d.recurrente, timestamp: now
+      });
+      if (error) throw error;
+      return { ok:true, id };
+    }
+    if (action === 'deleteTx') {
+      const { error } = await sbClient.from('transacciones').delete().eq('id', body.id);
+      if (error) throw error;
+      return { ok:true };
+    }
+    if (action === 'updateMeta') {
+      const rows = Object.entries(body.data).map(([parametro,valor]) => ({
+        user_id:uid, parametro, valor: String(valor)
+      }));
+      const { error } = await sbClient.from('meta').upsert(rows, { onConflict: 'user_id,parametro' });
+      if (error) throw error;
+      return { ok:true };
+    }
+    if (action === 'savePatrimonio') {
+      const d = body.data || {};
+      await sbClient.from('activos').delete().eq('user_id', uid);
+      await sbClient.from('pasivos').delete().eq('user_id', uid);
+      if ((d.activos||[]).length) {
+        const { error } = await sbClient.from('activos').insert(d.activos.map(a => ({
+          id:a.id, user_id:uid, tipo:a.tipo, nombre:a.nombre, valor_mercado:Number(a.valor_mercado)||0,
+          descripcion:a.descripcion||'', anio_compra:String(a.anio_compra||''), arriendo:Number(a.arriendo)||0,
+          institucion:a.institucion||'', aporte:Number(a.aporte)||0, updated:a.updated||now
+        })));
+        if (error) throw error;
+      }
+      if ((d.pasivos||[]).length) {
+        const { error } = await sbClient.from('pasivos').insert(d.pasivos.map(p => ({
+          id:p.id, user_id:uid, tipo:p.tipo, nombre:p.nombre, banco:p.banco||'',
+          saldo_pendiente:Number(p.saldo_pendiente)||0, cuota_mensual:Number(p.cuota_mensual)||0,
+          tasa_anual:Number(p.tasa_anual)||0, cuotas_pagadas:Number(p.cuotas_pagadas)||0,
+          cuotas_totales:Number(p.cuotas_totales)||0, fecha_inicio:p.fecha_inicio||'',
+          activo_id:p.activo_id||'', updated:p.updated||now
+        })));
+        if (error) throw error;
+      }
+      return { ok:true };
+    }
+    if (action === 'saveTarjetas') {
+      const d = body.data || {};
+      await sbClient.from('tarjetas').delete().eq('user_id', uid);
+      await sbClient.from('compras_tc').delete().eq('user_id', uid);
+      await sbClient.from('pagos_tc').delete().eq('user_id', uid);
+      if ((d.tarjetas||[]).length) {
+        const { error } = await sbClient.from('tarjetas').insert(d.tarjetas.map(t => ({
+          id:t.id, user_id:uid, nombre:t.nombre, banco:t.banco||'', limite:Number(t.limite)||0,
+          fecha_corte:Number(t.fecha_corte)||25, fecha_pago:Number(t.fecha_pago)||10,
+          color_idx:Number(t.color_idx)||0, quien:t.quien||'', updated:t.updated||now
+        })));
+        if (error) throw error;
+      }
+      if ((d.compras||[]).length) {
+        const { error } = await sbClient.from('compras_tc').insert(d.compras.map(c => ({
+          id:c.id, user_id:uid, tarjeta_id:c.tarjeta_id, descripcion:c.descripcion||'', tienda:c.tienda||'',
+          monto_total:Number(c.monto_total)||0, cuotas_totales:Number(c.cuotas_totales)||1,
+          monto_por_cuota:Number(c.monto_por_cuota)||0, fecha_compra:c.fecha_compra||'',
+          fecha_primera_cuota: c.fecha_primera_cuota||null, categoria:c.categoria||'',
+          tasa_interes:Number(c.tasa_interes)||0, quien:c.quien||'', updated:c.updated||now,
+          cuotas_pagadas:Number(c.cuotas_pagadas)||0
+        })));
+        if (error) throw error;
+      }
+      if ((d.pagosTC||[]).length) {
+        const { error } = await sbClient.from('pagos_tc').insert(d.pagosTC.map(p => ({
+          id:p.id, user_id:uid, tarjeta_id:p.tarjeta_id, monto:Number(p.monto)||0,
+          fecha:p.fecha||'', descripcion:p.descripcion||'', quien:p.quien||''
+        })));
+        if (error) throw error;
+      }
+      return { ok:true };
+    }
+    return { error: 'Accion desconocida: ' + action };
+  } catch(e) {
+    return { error: e.message || String(e) };
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1384,7 +1595,7 @@ async function loadMeta() {
   try {
     if (SCRIPT_URL) {
       const d = await apiGet({action:'getMeta'});
-      if (d && d.precio_objetivo) { metaData = d; return; }
+      if (d && !d.error) { metaData = d; return; }
     }
   } catch(e) {}
   metaData = localMeta;
@@ -1491,7 +1702,7 @@ async function submitGasto() {
   if (!desc || !monto || !fecha) { toast('Completa descripción, monto y fecha', '#C44B2B'); return; }
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:rec?'Sí':'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
-  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:cat,descripcion:desc,monto,quien,recurrente:rec}}).then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:cat,descripcion:desc,monto,quien,recurrente:rec}}).then(r => { if(r && r.ok) toast('Guardado ✓','#1D9E75'); });
   // Si el gasto es cuota de una deuda → cierra 1 cuota y recalcula el saldo
   const deudaId = document.getElementById('g-deuda').value;
   let msgDeuda = '';
@@ -1578,7 +1789,7 @@ async function submitIngreso() {
   if (!desc || !monto || !fecha) { toast('Completa descripción, monto y fecha', '#C44B2B'); return; }
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'ingreso', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
-  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ingreso',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ingreso',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado ✓','#1D9E75'); });
   document.getElementById('i-desc').value = ''; document.getElementById('i-monto').value = '';
   toast('Ingreso registrado', '#1D9E75'); renderDashboard(); renderTodayList();
 }
@@ -1592,7 +1803,7 @@ async function submitAhorro() {
   if (!desc || !monto || !fecha) { toast('Completa descripción, monto y fecha', '#C44B2B'); return; }
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'ahorro', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
-  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ahorro',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#185FA5'); });
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ahorro',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado ✓','#185FA5'); });
   // Si el ahorro está vinculado a una inversión → suma el monto a su valor de mercado
   const invId = document.getElementById('a-inversion').value;
   let msgInv = '';
@@ -1655,7 +1866,7 @@ async function submitPagoTC() {
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:'Pago Tarjeta', Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:'Pago Tarjeta',descripcion:desc,monto,quien,recurrente:false}})
-    .then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+    .then(r => { if(r && r.ok) toast('Guardado ✓','#1D9E75'); });
   // 2. Registrar pago en historial TC
   if (!tarjetasData.pagosTC) tarjetasData.pagosTC = [];
   tarjetasData.pagosTC.unshift({ id:'PTC'+Date.now(), tarjeta_id:tarjetaId, monto, fecha, descripcion:desc, quien });
@@ -1722,7 +1933,7 @@ async function saveEditTx() {
   if (SCRIPT_URL) {
     await apiPost({action:'deleteTx', id});
     apiPost({action:'addTx', data:{fecha, tipo, categoria:cat, descripcion:desc, monto, quien, recurrente:rec}})
-      .then(r => { if(r && r.ok) toast('Guardado en Google Sheets ✓','#1D9E75'); });
+      .then(r => { if(r && r.ok) toast('Guardado ✓','#1D9E75'); });
   }
   closeModal('modal-edit-tx');
   renderDashboard(); renderTodayList(); renderHistorial();
@@ -2434,7 +2645,7 @@ async function saveMeta() {
   };
   metaData = data; localMeta = data;
   localStorage.setItem('poritos_meta', JSON.stringify(data));
-  if (SCRIPT_URL) { await apiPost({action:'updateMeta', data}); toast('Meta sincronizada con Google Sheets', '#1D9E75'); }
+  if (SCRIPT_URL) { await apiPost({action:'updateMeta', data}); toast('Meta sincronizada ✓', '#1D9E75'); }
   else toast('Meta guardada localmente', '#1D9E75');
   renderMetaPage();
 }

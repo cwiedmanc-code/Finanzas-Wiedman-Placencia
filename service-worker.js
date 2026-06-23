@@ -1,6 +1,6 @@
 // ── VERSIÓN: cambia este número cada vez que hagas un deploy ──
 // Ej: poritos-v2, poritos-v3, poritos-v4...
-const CACHE = 'poritos-v19';
+const CACHE = 'poritos-v20';
 
 const ASSETS = [
   '/Finanzas-Wiedman-Placencia/',
@@ -34,9 +34,37 @@ self.addEventListener('message', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // No cachear APIs externas (tiempo real)
-  if (url.includes('script.google.com') || url.includes('anthropic.com')) return;
+  // No cachear APIs externas ni en tiempo real (Supabase, Claude, Apps Script, CDN)
+  if (url.includes('supabase.co') ||
+      url.includes('supabase.in') ||
+      url.includes('script.google.com') ||
+      url.includes('anthropic.com') ||
+      url.includes('cdn.jsdelivr.net')) {
+    return; // deja pasar a la red sin tocar la caché
+  }
+  // index.html / navegación: network-first para no quedar con versión vieja
+  if (e.request.mode === 'navigate' || url.endsWith('/index.html')) {
+    e.respondWith(
+      fetch(e.request)
+        .then(resp => {
+          const copy = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+          return resp;
+        })
+        .catch(() => caches.match(e.request).then(c => c || caches.match('/Finanzas-Wiedman-Placencia/index.html')))
+    );
+    return;
+  }
+  // Resto de assets: cache-first
   e.respondWith(
     caches.match(e.request).then(cached =>
       cached || fetch(e.request).then(resp => {
         if (resp.ok && e.request.method === 'GET') {
+          const copy = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+        }
+        return resp;
+      }).catch(() => cached)
+    )
+  );
+});
