@@ -18,6 +18,14 @@
   const sbClient = window.supabase.createClient(SB_URL, SB_KEY);
   let currentUserId = null;
   let currentUserEmail = '';
+
+  // Registrar service worker (necesario para instalar como app PWA)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/Finanzas-Wiedman-Placencia/service-worker.js')
+        .catch(e => console.warn('SW no registrado:', e));
+    });
+  }
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
