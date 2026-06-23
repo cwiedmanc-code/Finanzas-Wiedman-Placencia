@@ -460,47 +460,80 @@ html { overflow-x: hidden; }
 .chip-ingreso { background: var(--accent-light); color: var(--accent); }
 .chip-rec { background: var(--blue-light); color: var(--blue); }
 
-/* ── Login screen ── */
-#login-screen { position: fixed; top:0; left:0; right:0; bottom:0; background: var(--bg); display:flex; align-items:center; justify-content:center; z-index:99999; }
+/* ── Login screen (rediseño premium) ── */
+#login-screen { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:99999; padding:24px; overflow:hidden; background:#0C1426; }
 #login-screen.hidden { display: none; }
-.login-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 28px; box-shadow: var(--shadow-md); width: 90%; max-width: 360px; }
-.login-title { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 4px; letter-spacing: -0.3px; }
-.login-sub { font-size: 12px; color: var(--text3); margin-bottom: 22px; text-transform: uppercase; letter-spacing: 0.06em; }
-.login-field { margin-bottom: 14px; }
-.login-field label { display: block; font-size: 11px; color: var(--text3); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
-.login-field input { width: 100%; padding: 10px 12px; font-size: 14px; font-family: var(--font); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); box-sizing: border-box; }
-.login-field input:focus { outline: none; border-color: var(--accent); }
-.login-remember { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); margin: 14px 0 18px; cursor: pointer; }
-.login-remember input { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
-.login-btn { width: 100%; padding: 11px; font-size: 14px; font-weight: 500; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; }
-.login-btn:hover { opacity: 0.85; }
-.login-error { font-size: 12px; color: var(--danger); margin-top: 8px; min-height: 16px; }
+#login-screen::before, #login-screen::after { content:""; position:absolute; border-radius:50%; filter:blur(70px); opacity:0.5; pointer-events:none; z-index:0; }
+#login-screen::before { width:520px; height:520px; background:radial-gradient(circle, rgba(196,159,83,0.45), transparent 70%); top:-160px; right:-120px; animation: auroraA 14s ease-in-out infinite alternate; }
+#login-screen::after { width:480px; height:480px; background:radial-gradient(circle, rgba(33,74,140,0.55), transparent 70%); bottom:-180px; left:-120px; animation: auroraB 16s ease-in-out infinite alternate; }
+@keyframes auroraA { from{transform:translate(0,0) scale(1);} to{transform:translate(-60px,40px) scale(1.15);} }
+@keyframes auroraB { from{transform:translate(0,0) scale(1);} to{transform:translate(50px,-30px) scale(1.2);} }
+.login-wrap { position:relative; z-index:1; width:100%; max-width:380px; display:flex; flex-direction:column; align-items:center; }
+.login-brand { display:flex; flex-direction:column; align-items:center; margin-bottom:22px; animation: fadeUp 0.7s ease both; }
+.login-logo { width:94px; height:94px; animation: floaty 5s ease-in-out infinite; }
+.login-logo svg { width:100%; height:100%; display:block; filter: drop-shadow(0 6px 18px rgba(196,159,83,0.35)); }
+.login-logo .ring { stroke-dasharray:252; stroke-dashoffset:252; animation: ringDraw 1.4s ease forwards 0.2s; }
+.login-logo .mletter { opacity:0; animation: fadeIn 0.6s ease forwards 1s; }
+.login-word { margin-top:16px; font-size:30px; font-weight:700; letter-spacing:8px; color:#fff; padding-left:8px; }
+.login-tag { margin-top:5px; font-size:11px; letter-spacing:4px; color:#C49F53; text-transform:uppercase; }
+.login-box { width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:28px 26px; box-shadow:0 20px 50px rgba(0,0,0,0.45); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); animation: fadeUp 0.7s ease 0.15s both; }
+.login-sub { font-size:12px; color:rgba(255,255,255,0.5); margin-bottom:20px; text-transform:uppercase; letter-spacing:0.12em; }
+.login-field { margin-bottom:14px; }
+.login-field label { display:block; font-size:10.5px; color:rgba(255,255,255,0.55); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.08em; font-weight:500; }
+.login-field input { width:100%; padding:13px 14px; font-size:15px; font-family:var(--font); border:1px solid rgba(255,255,255,0.15); border-radius:12px; background:rgba(12,20,38,0.4); color:#fff; box-sizing:border-box; transition:border-color .2s, box-shadow .2s, background .2s; }
+.login-field input::placeholder { color:rgba(255,255,255,0.3); }
+.login-field input:focus { outline:none; border-color:#C49F53; background:rgba(12,20,38,0.6); box-shadow:0 0 0 3px rgba(196,159,83,0.18); }
+.login-remember { display:flex; align-items:center; gap:9px; font-size:13px; color:rgba(255,255,255,0.7); margin:16px 0 20px; cursor:pointer; }
+.login-remember input { width:15px; height:15px; cursor:pointer; accent-color:#C49F53; }
+.login-btn { width:100%; padding:14px; font-size:15px; font-weight:600; background:linear-gradient(135deg,#D9B968,#C49F53); color:#0C1426; border:none; border-radius:12px; cursor:pointer; letter-spacing:0.3px; transition:transform .15s, box-shadow .2s, filter .2s; box-shadow:0 8px 20px rgba(196,159,83,0.28); }
+.login-btn:hover { transform:translateY(-2px); box-shadow:0 12px 26px rgba(196,159,83,0.4); filter:brightness(1.05); }
+.login-btn:active { transform:translateY(0); }
+.login-pass-eye { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:16px; color:rgba(255,255,255,0.5); padding:0; line-height:1; }
+.login-error { font-size:12.5px; color:#ff8a80; margin-top:10px; min-height:16px; text-align:center; }
+#login-toggle { text-align:center; margin-top:16px; font-size:13px; color:#C49F53; cursor:pointer; transition:opacity .2s; }
+#login-toggle:hover { opacity:0.75; }
+@keyframes fadeUp { from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:translateY(0);} }
+@keyframes fadeIn { to{opacity:1;} }
+@keyframes floaty { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-7px);} }
+@keyframes ringDraw { to{stroke-dashoffset:0;} }
+@media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
 <body>
 
 <div id="login-screen">
-  <div class="login-box">
-    <div class="login-title">METTA</div>
-    <div class="login-sub" id="login-sub">Inicia sesión</div>
-    <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="login-user" placeholder="tucorreo@ejemplo.com" autocomplete="username">
-    </div>
-    <div class="login-field">
-      <label>Contraseña</label>
-      <div style="position:relative;">
-        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()" style="padding-right:40px;">
-        <button type="button" onclick="togglePassVisibility()" id="toggle-pass-btn" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:#888;padding:0;line-height:1;" title="Mostrar/ocultar contraseña">👁</button>
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-logo">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle class="ring" cx="50" cy="50" r="40" stroke="#C49F53" stroke-width="5"/>
+          <path class="mletter" d="M35 68 L35 34 L50 52 L65 34 L65 68" stroke="#C49F53" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
+      <div class="login-word">METTA</div>
+      <div class="login-tag">Finanzas personales</div>
     </div>
-    <label class="login-remember">
-      <input type="checkbox" id="login-remember" checked>
-      Mantener sesión iniciada en este dispositivo
-    </label>
-    <button class="login-btn" id="login-btn-main" onclick="doAuth()">Entrar</button>
-    <div class="login-error" id="login-error"></div>
-    <div id="login-toggle" onclick="toggleAuthMode()" style="text-align:center;margin-top:14px;font-size:13px;color:var(--accent);cursor:pointer;">¿No tienes cuenta? Crear una</div>
+    <div class="login-box">
+      <div class="login-sub" id="login-sub">Inicia sesión</div>
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-user" placeholder="tucorreo@ejemplo.com" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label>Contraseña</label>
+        <div style="position:relative;">
+          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()" style="padding-right:42px;">
+          <button type="button" onclick="togglePassVisibility()" id="toggle-pass-btn" class="login-pass-eye" title="Mostrar/ocultar contraseña">👁</button>
+        </div>
+      </div>
+      <label class="login-remember">
+        <input type="checkbox" id="login-remember" checked>
+        Mantener sesión iniciada en este dispositivo
+      </label>
+      <button class="login-btn" id="login-btn-main" onclick="doAuth()">Entrar</button>
+      <div class="login-error" id="login-error"></div>
+      <div id="login-toggle" onclick="toggleAuthMode()">¿No tienes cuenta? Crear una</div>
+    </div>
   </div>
 </div>
 
