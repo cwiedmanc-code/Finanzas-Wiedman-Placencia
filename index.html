@@ -1138,6 +1138,15 @@ html { overflow-x: hidden; }
         <div id="cfg-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
       </div>
       <div class="card">
+        <div class="card-title">Integrantes de tu familia</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Define quiénes registran movimientos. Aparecerán en el selector <strong>"¿Quién?"</strong> al registrar gastos, ingresos, ahorros y tarjetas.</p>
+        <div id="cfg-integrantes-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="cfg-integrante-input" placeholder="Nombre (ej. Juan)" maxlength="24" style="flex:1;padding:10px 12px;font-size:14px;font-family:var(--font);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);box-sizing:border-box;" onkeydown="if(event.key==='Enter'){event.preventDefault();addIntegrante();}">
+          <button class="btn btn-primary" onclick="addIntegrante()" style="white-space:nowrap;">Agregar</button>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-title">Tu cuenta</div>
         <p style="font-size:13px;color:var(--text2);line-height:1.6">Sesión iniciada como <strong id="cfg-email">—</strong>.<br>Tus datos son privados: solo tú ves tu información.</p>
       </div>
@@ -1604,6 +1613,8 @@ async function loadAll() {
   renderPatrimonio();
   renderTarjetas();
   applyEspacioNombre();
+  poblarSelectsQuien();
+  renderIntegrantes();
 }
 
 // ── Nombre personalizable del espacio (por usuario) ──
@@ -1628,6 +1639,64 @@ async function saveEspacioNombre() {
   if (SCRIPT_URL) { await apiPost({ action:'updateMeta', data:{ espacio_nombre: nombre } }); }
   document.getElementById('cfg-status').textContent = '✓ Nombre guardado';
   toast('Nombre actualizado ✓', '#1D9E75');
+}
+
+// ── Integrantes de la familia (por usuario) ──
+function getIntegrantes() {
+  try {
+    const arr = JSON.parse((metaData && metaData.integrantes) || '[]');
+    if (Array.isArray(arr) && arr.length) return arr;
+  } catch(e) {}
+  return ['Cris', 'Roci'];
+}
+
+function poblarSelectsQuien() {
+  const opts = getIntegrantes().concat(['Ambos']);
+  const html = opts.map(m => `<option>${m}</option>`).join('');
+  ['etx-quien','tc-quien','tc-compra-quien','g-quien','i-quien','a-quien','ptc-quien'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = html;
+    if (opts.includes(prev)) sel.value = prev;
+  });
+}
+
+function renderIntegrantes() {
+  const cont = document.getElementById('cfg-integrantes-list');
+  if (!cont) return;
+  const miembros = getIntegrantes();
+  cont.innerHTML = miembros.map(m => {
+    const safe = String(m).replace(/'/g, "\\'");
+    return `<span style="display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:5px 7px 5px 13px;font-size:13px;color:var(--text);">${m}<button onclick="removeIntegrante('${safe}')" title="Quitar" style="border:none;background:rgba(0,0,0,0.08);color:var(--text2);width:19px;height:19px;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;padding:0;">×</button></span>`;
+  }).join('') || '<span style="font-size:13px;color:var(--text3)">Aún no hay integrantes.</span>';
+}
+
+async function persistIntegrantes(miembros) {
+  metaData = metaData || {};
+  metaData.integrantes = JSON.stringify(miembros);
+  renderIntegrantes();
+  poblarSelectsQuien();
+  if (SCRIPT_URL) { await apiPost({ action:'updateMeta', data:{ integrantes: JSON.stringify(miembros) } }); }
+  toast('Integrantes actualizados ✓', '#1D9E75');
+}
+
+async function addIntegrante() {
+  const inp = document.getElementById('cfg-integrante-input');
+  const nombre = (inp.value || '').trim();
+  if (!nombre) return;
+  const miembros = getIntegrantes();
+  if (miembros.some(m => m.toLowerCase() === nombre.toLowerCase())) { toast('Ese integrante ya existe', '#C44B2B'); return; }
+  if (nombre.toLowerCase() === 'ambos') { toast('"Ambos" se agrega solo', '#C44B2B'); return; }
+  miembros.push(nombre);
+  inp.value = '';
+  await persistIntegrantes(miembros);
+}
+
+async function removeIntegrante(nombre) {
+  const miembros = getIntegrantes().filter(m => m !== nombre);
+  if (!miembros.length) { toast('Debe quedar al menos un integrante', '#C44B2B'); return; }
+  await persistIntegrantes(miembros);
 }
 
 function parseMonto(val) {
@@ -1954,7 +2023,7 @@ function openEditTx(id) {
   document.getElementById('etx-fecha').value = t.Fecha || '';
   document.getElementById('etx-desc').value  = t.Descripcion || '';
   document.getElementById('etx-monto').value = t.Monto || '';
-  document.getElementById('etx-quien').value = t.Quien || 'Cris';
+  document.getElementById('etx-quien').value = t.Quien || getIntegrantes()[0];
   document.getElementById('etx-rec').checked = t.Recurrente === 'Sí';
   onEditTxTipoChange();
   const tipo = t.Tipo || 'gasto';
@@ -3164,7 +3233,7 @@ function openModalTarjeta(editId) {
       document.getElementById('tc-nombre').value   = t.nombre || '';
       document.getElementById('tc-banco').value    = t.banco  || '';
       document.getElementById('tc-limite').value   = t.limite || '';
-      document.getElementById('tc-quien').value    = t.quien  || 'Cris';
+      document.getElementById('tc-quien').value    = t.quien  || getIntegrantes()[0];
       document.getElementById('tc-corte').value    = t.fecha_corte || '';
       document.getElementById('tc-pago').value     = t.fecha_pago  || '';
       selectTCColor(t.color_idx || 0);
@@ -3246,7 +3315,7 @@ function openModalCompraTc(editId) {
       document.getElementById('tc-compra-cuota-monto').value     = c.monto_por_cuota || '';
       document.getElementById('tc-compra-tasa').value            = c.tasa_interes || '';
       document.getElementById('tc-compra-cat').value             = c.categoria || 'Otro';
-      document.getElementById('tc-compra-quien').value           = c.quien || 'Cris';
+      document.getElementById('tc-compra-quien').value           = c.quien || getIntegrantes()[0];
       document.getElementById('tc-compra-primera-cuota').value   = c.fecha_primera_cuota || '';
       document.getElementById('tc-compra-pagadas').value         = (c.cuotas_pagadas != null ? c.cuotas_pagadas : 0);
     }
@@ -3325,7 +3394,7 @@ function _registrarPagoTCRecord(tarjetaId, monto, desc) {
   const h = new Date();
   const fecha = h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
   const tj = (tarjetasData.tarjetas || []).find(t => t.id === tarjetaId);
-  const quien = (tj && tj.quien) ? tj.quien : 'Cris';
+  const quien = (tj && tj.quien) ? tj.quien : getIntegrantes()[0];
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:'Pago Tarjeta', Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:'Pago Tarjeta',descripcion:desc,monto,quien,recurrente:false}});
