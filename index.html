@@ -20,12 +20,39 @@
   let currentUserEmail = '';
   const ADMIN_UID = 'd15eac03-3ac8-4954-b6c0-efd15396ba2a';
 
-  // Registrar service worker (necesario para instalar como app PWA)
+  // Registrar service worker + detectar actualizaciones (banner "Actualizar")
+  let _swReg = null, _reloading = false;
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/Finanzas-Wiedman-Placencia/service-worker.js')
-        .catch(e => console.warn('SW no registrado:', e));
+      navigator.serviceWorker.register('/Finanzas-Wiedman-Placencia/service-worker.js').then(reg => {
+        _swReg = reg;
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner();
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner();
+          });
+        });
+      }).catch(e => console.warn('SW no registrado:', e));
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_reloading) return; _reloading = true; window.location.reload();
+      });
     });
+  }
+  function showUpdateBanner() {
+    const b = document.getElementById('update-banner');
+    if (b) b.classList.add('show');
+  }
+  function applyUpdate() {
+    const b = document.getElementById('update-banner');
+    if (b) { const btn = b.querySelector('.ub-btn'); if (btn) btn.textContent = 'Actualizando…'; }
+    if (_swReg && _swReg.waiting) _swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    else window.location.reload();
+  }
+  function dismissUpdate() {
+    const b = document.getElementById('update-banner');
+    if (b) b.classList.remove('show');
   }
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -497,10 +524,26 @@ html { overflow-x: hidden; }
 @keyframes fadeIn { to{opacity:1;} }
 @keyframes floaty { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-7px);} }
 @keyframes ringDraw { to{stroke-dashoffset:0;} }
+/* ── Banner de actualización ── */
+#update-banner { position:fixed; top:0; left:0; right:0; z-index:100000; display:flex; align-items:center; justify-content:center; gap:14px; padding:12px 16px; background:linear-gradient(135deg,#0C1426,#16223d); color:#fff; box-shadow:0 6px 24px rgba(0,0,0,0.4); border-bottom:1px solid rgba(196,159,83,0.45); transform:translateY(-110%); transition:transform .45s cubic-bezier(.2,.8,.2,1); font-size:14px; }
+#update-banner.show { transform:translateY(0); }
+#update-banner .ub-txt { display:flex; align-items:center; gap:9px; font-weight:500; letter-spacing:0.2px; }
+#update-banner .ub-dot { width:9px; height:9px; border-radius:50%; background:#C49F53; animation:ubpulse 1.6s infinite; flex-shrink:0; }
+@keyframes ubpulse { 0%{box-shadow:0 0 0 0 rgba(196,159,83,0.55);} 70%{box-shadow:0 0 0 9px rgba(196,159,83,0);} 100%{box-shadow:0 0 0 0 rgba(196,159,83,0);} }
+#update-banner .ub-btn { background:linear-gradient(135deg,#D9B968,#C49F53); color:#0C1426; border:none; border-radius:10px; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer; transition:transform .15s, filter .2s; box-shadow:0 4px 12px rgba(196,159,83,0.3); }
+#update-banner .ub-btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
+#update-banner .ub-x { background:none; border:none; color:rgba(255,255,255,0.55); font-size:20px; line-height:1; cursor:pointer; padding:0 2px; }
+@media (max-width:480px){ #update-banner { font-size:13px; gap:10px; padding:11px 12px; } #update-banner .ub-txt span.ub-long { display:none; } }
 @media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
 <body>
+
+<div id="update-banner">
+  <span class="ub-txt"><span class="ub-dot"></span>Nueva versión de METTA<span class="ub-long"> disponible</span></span>
+  <button class="ub-btn" onclick="applyUpdate()">Actualizar</button>
+  <button class="ub-x" onclick="dismissUpdate()" title="Cerrar">×</button>
+</div>
 
 <div id="login-screen">
   <div class="login-wrap">
