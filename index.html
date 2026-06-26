@@ -570,6 +570,16 @@ html { overflow-x: hidden; }
 #fab-quick { position:fixed; right:18px; bottom:84px; z-index:9000; width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,#D9B968,#C49F53); color:#0C1426; border:none; font-size:30px; font-weight:700; box-shadow:0 8px 24px rgba(196,159,83,0.5); cursor:pointer; display:none; align-items:center; justify-content:center; transition:transform .15s; }
 #fab-quick:active { transform:scale(0.92); }
 @media (min-width:900px){ #fab-quick { bottom:28px; right:28px; } }
+/* ── Menú del botón + ── */
+#fab-backdrop { position:fixed; inset:0; background:rgba(12,20,38,0.45); z-index:9998; display:none; }
+#fab-backdrop.show { display:block; }
+#fab-menu { position:fixed; left:0; right:0; bottom:0; z-index:9999; background:var(--surface); border-radius:20px 20px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); box-shadow:0 -10px 40px rgba(0,0,0,0.28); transform:translateY(110%); transition:transform .3s ease; }
+#fab-menu.show { transform:translateY(0); }
+.fab-menu-title { font-size:12px; color:var(--text3); text-transform:uppercase; letter-spacing:0.07em; text-align:center; margin-bottom:14px; }
+.fab-opt { display:flex; align-items:center; gap:13px; width:100%; padding:14px 16px; border:1px solid var(--border); border-radius:12px; background:var(--surface); font-size:15px; color:var(--text); font-family:var(--font); cursor:pointer; margin-bottom:10px; text-align:left; }
+.fab-opt span { font-size:22px; line-height:1; }
+.fab-opt:hover, .fab-opt:active { background:rgba(196,159,83,0.1); border-color:#C49F53; }
+@media (min-width:900px){ #fab-menu { left:auto; right:24px; bottom:96px; width:300px; border-radius:16px; } }
 /* ── Grid de categorías rápidas ── */
 .quick-cat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
 .qcat { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 6px; border:1px solid var(--border); border-radius:12px; background:var(--surface); cursor:pointer; font-size:11.5px; color:var(--text2); transition:all .15s; text-align:center; }
@@ -597,7 +607,16 @@ html { overflow-x: hidden; }
   <div class="ii-text" id="ios-install-text"></div>
 </div>
 
-<button id="fab-quick" onclick="openQuick()" title="Registrar gasto rápido">+</button>
+<button id="fab-quick" onclick="toggleFabMenu()" title="Registrar">+</button>
+<div id="fab-backdrop" onclick="cerrarFabMenu()"></div>
+<div id="fab-menu">
+  <div class="fab-menu-title">¿Qué quieres registrar?</div>
+  <button class="fab-opt" onclick="openQuick()"><span>⚡</span> Gasto rápido</button>
+  <button class="fab-opt" onclick="irRegistrar('gasto')"><span>💸</span> Gasto (detallado)</button>
+  <button class="fab-opt" onclick="irRegistrar('ingreso')"><span>💰</span> Ingreso</button>
+  <button class="fab-opt" onclick="irRegistrar('ahorro')"><span>🐷</span> Ahorro</button>
+  <button class="fab-opt" onclick="irRegistrar('pago-tc')"><span>💳</span> Abono TC</button>
+</div>
 
 <div id="login-screen">
   <div class="login-wrap">
@@ -1330,10 +1349,6 @@ html { overflow-x: hidden; }
     <button class="bn-item active" data-page="dashboard" onclick="showPageMobile('dashboard',this)">
       <span class="bn-ico"><svg viewBox="0 0 24 24"><path d="M3 9.8 12 3l9 6.8V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>
       <span class="bn-lbl">Inicio</span>
-    </button>
-    <button class="bn-item" data-page="registro" onclick="showPageMobile('registro',this)">
-      <span class="bn-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
-      <span class="bn-lbl">Registrar</span>
     </button>
     <button class="bn-item" data-page="historial" onclick="showPageMobile('historial',this)">
       <span class="bn-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
@@ -2211,7 +2226,25 @@ function pickQuickCat(i, el){
   document.querySelectorAll('#quick-cat-grid .qcat').forEach(c=>c.classList.remove('sel'));
   if (el) el.classList.add('sel');
 }
+function toggleFabMenu(){
+  const m = document.getElementById('fab-menu'), b = document.getElementById('fab-backdrop');
+  if (m.classList.contains('show')) { cerrarFabMenu(); }
+  else { m.classList.add('show'); b.classList.add('show'); }
+}
+function cerrarFabMenu(){
+  document.getElementById('fab-menu').classList.remove('show');
+  document.getElementById('fab-backdrop').classList.remove('show');
+}
+function irRegistrar(tipo){
+  cerrarFabMenu();
+  showPage('registro', null);
+  const idx = { gasto:0, ingreso:1, ahorro:2, 'pago-tc':3 }[tipo];
+  const btns = document.querySelectorAll('#type-toggle button');
+  if (btns[idx]) btns[idx].click();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
 function openQuick(){
+  cerrarFabMenu();
   quickCat = null;
   document.getElementById('quick-monto').value = '';
   buildQuickGrid();
