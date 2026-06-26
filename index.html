@@ -553,6 +553,10 @@ html { overflow-x: hidden; }
 @keyframes pbArrow { 0%,100%{transform:translateX(0);} 50%{transform:translateX(4px);} }
 @media (max-width:480px){ .pb-sub { display:none; } .pb-title { font-size:14px; } }
 @media (prefers-reduced-motion: reduce){ #pendientes-banner, #pendientes-banner::after, .pb-icon svg, .pb-arrow { animation:none!important; } }
+/* ── Pestañas de filtro de movimientos ── */
+.drt { padding:6px 13px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--text2); font-size:12.5px; font-weight:500; cursor:pointer; font-family:var(--font); transition:all .15s; }
+.drt:hover:not(.active) { border-color:#C49F53; color:var(--text); }
+.drt.active { background:#0C1426; color:#fff; border-color:#0C1426; }
 @media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
@@ -901,6 +905,13 @@ html { overflow-x: hidden; }
         </div>
         <div class="card">
           <div class="card-title">Movimientos del mes</div>
+          <div id="dash-recent-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+            <button class="drt active" onclick="setDashFilter('todos',this)">Todos</button>
+            <button class="drt" onclick="setDashFilter('gasto',this)">Gastos</button>
+            <button class="drt" onclick="setDashFilter('ingreso',this)">Ingresos</button>
+            <button class="drt" onclick="setDashFilter('ahorro',this)">Ahorro</button>
+            <button class="drt" onclick="setDashFilter('abono',this)">Abono TC</button>
+          </div>
           <div class="tx-list" id="dash-recent" style="max-height:520px;overflow-y:auto;padding-right:4px;width:100%"></div>
         </div>
       </div>
@@ -1524,15 +1535,16 @@ window.addEventListener('load', async () => {
   }
 });
 
+function pad(n){ return String(n).padStart(2,'0'); }
+function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+const MESES_CORTOS = ['','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fechaCorta(f){ if(!f) return '—'; const p = String(f).split('-'); if (p.length < 3) return String(f); return parseInt(p[2]) + ' ' + (MESES_CORTOS[parseInt(p[1])] || ''); }
+
 function initDates() {
-  const today = `${curYear}-${pad(curMonth)}-${pad(new Date().getDate())}`;
-  document.getElementById('g-fecha').value = today;
-  document.getElementById('i-fecha').value = today;
-  document.getElementById('a-fecha').value = today;
+  const today = todayISO();
+  ['g-fecha','i-fecha','a-fecha','ptc-fecha'].forEach(id => { const el = document.getElementById(id); if (el) el.value = today; });
   updateMonthLabels();
 }
-
-function pad(n){ return String(n).padStart(2,'0'); }
 function fmt(n){ return Math.round(Math.abs(n)).toLocaleString('es-CL'); }
 function fmtK(n){ return Math.round(n).toLocaleString('es-CL'); }
 
@@ -2155,11 +2167,11 @@ function selQuick(i, cat) {
 async function submitGasto() {
   const desc  = document.getElementById('g-desc').value.trim();
   const monto = parseFloat(document.getElementById('g-monto').value);
-  const fecha = document.getElementById('g-fecha').value;
+  const fecha = document.getElementById('g-fecha').value || todayISO();
   const cat   = document.getElementById('g-cat').value;
   const quien = document.getElementById('g-quien').value;
   const rec   = document.getElementById('g-rec').checked;
-  if (!desc || !monto || !fecha) { toast('Completa descripción, monto y fecha', '#C44B2B'); return; }
+  if (!desc || !monto) { toast('Completa descripción y monto', '#C44B2B'); return; }
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:rec?'Sí':'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:cat,descripcion:desc,monto,quien,recurrente:rec}}).then(r => { if(r && r.ok) toast('Guardado ✓','#1D9E75'); });
@@ -2243,10 +2255,10 @@ function updateDeudaHint() {
 async function submitIngreso() {
   const desc  = document.getElementById('i-desc').value.trim();
   const monto = parseFloat(document.getElementById('i-monto').value);
-  const fecha = document.getElementById('i-fecha').value;
+  const fecha = document.getElementById('i-fecha').value || todayISO();
   const cat   = document.getElementById('i-tipo').value;
   const quien = document.getElementById('i-quien').value;
-  if (!desc || !monto || !fecha) { toast('Completa descripción, monto y fecha', '#C44B2B'); return; }
+  if (!desc || !monto) { toast('Completa descripción y monto', '#C44B2B'); return; }
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'ingreso', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ingreso',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado ✓','#1D9E75'); });
@@ -2257,10 +2269,10 @@ async function submitIngreso() {
 async function submitAhorro() {
   const desc  = document.getElementById('a-desc').value.trim();
   const monto = parseFloat(document.getElementById('a-monto').value);
-  const fecha = document.getElementById('a-fecha').value;
+  const fecha = document.getElementById('a-fecha').value || todayISO();
   const cat   = document.getElementById('a-cat').value;
   const quien = document.getElementById('a-quien').value;
-  if (!desc || !monto || !fecha) { toast('Completa descripción, monto y fecha', '#C44B2B'); return; }
+  if (!desc || !monto) { toast('Completa descripción y monto', '#C44B2B'); return; }
   const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'ahorro', Categoria:cat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
   localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
   if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'ahorro',categoria:cat,descripcion:desc,monto,quien,recurrente:false}}).then(r => { if(r && r.ok) toast('Guardado ✓','#185FA5'); });
@@ -2313,12 +2325,11 @@ function onInversionSelect() {
 async function submitPagoTC() {
   const tarjetaId = document.getElementById('ptc-tarjeta').value;
   const monto     = parseFloat(document.getElementById('ptc-monto').value);
-  const fecha     = document.getElementById('ptc-fecha').value;
+  const fecha     = document.getElementById('ptc-fecha').value || todayISO();
   const quien     = document.getElementById('ptc-quien').value;
   const descInput = document.getElementById('ptc-desc').value.trim();
   if (!tarjetaId) { toast('Selecciona una tarjeta', '#C44B2B'); return; }
   if (!monto || monto <= 0) { toast('Ingresa el monto pagado', '#C44B2B'); return; }
-  if (!fecha) { toast('Ingresa la fecha del pago', '#C44B2B'); return; }
   const tarjeta = (tarjetasData.tarjetas || []).find(t => t.id === tarjetaId);
   const nombreTC = tarjeta ? tarjeta.nombre : 'Tarjeta';
   const desc = descInput || `Pago ${nombreTC}`;
@@ -2684,12 +2695,31 @@ function renderDashboard() {
     </div>`
   ).join('') : '<div class="empty"><div class="e-icon">📊</div>Sin gastos este mes</div>';
 
-  const recent = [...cachedTx].sort((a,b)=>b.Fecha?.localeCompare(a.Fecha));
-  document.getElementById('dash-recent').innerHTML = recent.length ? recent.map(t => txItemHTML(t)).join('') :
-    '<div class="empty"><div class="e-icon">📋</div>Sin movimientos</div>';
+  renderDashRecent();
 
   fillDeudaSelect();
   fillInversionSelect();
+}
+
+let dashFilter = 'todos';
+function dashFilterFn(t) {
+  if (dashFilter === 'todos')  return true;
+  if (dashFilter === 'abono')  return t.Categoria === 'Pago Tarjeta';
+  if (dashFilter === 'gasto')  return t.Tipo === 'gasto' && t.Categoria !== 'Pago Tarjeta';
+  return t.Tipo === dashFilter; // ingreso | ahorro
+}
+function renderDashRecent() {
+  const el = document.getElementById('dash-recent');
+  if (!el) return;
+  const rows = [...cachedTx].filter(dashFilterFn).sort((a,b) => (b.Fecha||'').localeCompare(a.Fecha||''));
+  el.innerHTML = rows.length ? rows.map(t => txItemHTML(t)).join('')
+    : '<div class="empty"><div class="e-icon">📋</div>Sin movimientos de este tipo</div>';
+}
+function setDashFilter(f, btn) {
+  dashFilter = f;
+  document.querySelectorAll('#dash-recent-tabs .drt').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderDashRecent();
 }
 
 function renderHistorial() {
@@ -2715,7 +2745,6 @@ function txItemHTML(t) {
   const col   = CAT_COLORS[t.Categoria] || '#888';
   const sign  = isIng ? '+' : (isAho ? '↑' : '−');
   const aColor= isIng ? '#1D9E75' : (isAho ? '#185FA5' : '#C44B2B');
-  const day   = t.Fecha?.split('-')[2] || '';
   return `<div class="tx-item">
     <div class="tx-dot" style="background:${col}"></div>
     <div class="tx-info">
@@ -2723,7 +2752,7 @@ function txItemHTML(t) {
       <div class="tx-meta">${t.Categoria} · ${t.Quien||''}${t.Recurrente==='Sí'?' · Recurrente':''}</div>
     </div>
     <div class="tx-amount" style="color:${aColor}">${sign}$${fmt(t.Monto)}</div>
-    <div class="tx-date">día ${day}</div>
+    <div class="tx-date">${fechaCorta(t.Fecha)}</div>
     <button onclick="openEditTx('${t.ID}')" title="Editar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;line-height:1">✎</button>
     <button class="tx-del" onclick="delTx('${t.ID}',this)" title="Eliminar">×</button>
   </div>`;
