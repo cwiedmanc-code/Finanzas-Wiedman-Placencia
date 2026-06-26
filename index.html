@@ -557,6 +557,29 @@ html { overflow-x: hidden; }
 .drt { padding:6px 13px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--text2); font-size:12.5px; font-weight:500; cursor:pointer; font-family:var(--font); transition:all .15s; }
 .drt:hover:not(.active) { border-color:#C49F53; color:var(--text); }
 .drt.active { background:#0C1426; color:#fff; border-color:#0C1426; }
+/* ── Asistente instalación iOS ── */
+#ios-install { position:fixed; left:12px; right:12px; bottom:12px; z-index:100001; background:#fff; border:1px solid rgba(196,159,83,0.4); border-radius:16px; box-shadow:0 14px 44px rgba(0,0,0,0.28); padding:16px 18px; display:none; }
+#ios-install.show { display:block; animation:fadeUp .4s ease both; }
+#ios-install .ii-title { font-weight:600; color:#0C1426; font-size:15px; margin-bottom:4px; }
+#ios-install .ii-text { font-size:13px; color:#5c5f66; line-height:1.55; }
+#ios-install .ii-x { position:absolute; top:8px; right:12px; background:none; border:none; font-size:22px; color:#bbb; cursor:pointer; line-height:1; }
+#ios-install b { color:#C49F53; }
+.ii-arrow { display:inline-block; animation:iiBounce 1.2s ease-in-out infinite; }
+@keyframes iiBounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(5px);} }
+/* ── FAB registro rápido ── */
+#fab-quick { position:fixed; right:18px; bottom:84px; z-index:9000; width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,#D9B968,#C49F53); color:#0C1426; border:none; font-size:30px; font-weight:700; box-shadow:0 8px 24px rgba(196,159,83,0.5); cursor:pointer; display:none; align-items:center; justify-content:center; transition:transform .15s; }
+#fab-quick:active { transform:scale(0.92); }
+@media (min-width:900px){ #fab-quick { bottom:28px; right:28px; } }
+/* ── Grid de categorías rápidas ── */
+.quick-cat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
+.qcat { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 6px; border:1px solid var(--border); border-radius:12px; background:var(--surface); cursor:pointer; font-size:11.5px; color:var(--text2); transition:all .15s; text-align:center; }
+.qcat:hover, .qcat.sel { border-color:#C49F53; background:rgba(196,159,83,0.1); color:var(--text); }
+.qcat .qc-ico { font-size:26px; line-height:1; }
+/* ── Tour / bienvenida ── */
+.wlc-step { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+.wlc-ico { width:38px; height:38px; border-radius:10px; background:rgba(196,159,83,0.14); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+.wlc-step b { color:var(--text); font-size:14px; }
+.wlc-step p { font-size:13px; color:var(--text2); margin-top:2px; line-height:1.45; }
 @media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
@@ -567,6 +590,14 @@ html { overflow-x: hidden; }
   <button class="ub-btn" onclick="applyUpdate()">Actualizar</button>
   <button class="ub-x" onclick="dismissUpdate()" title="Cerrar">×</button>
 </div>
+
+<div id="ios-install">
+  <button class="ii-x" onclick="cerrarIosInstall()">×</button>
+  <div class="ii-title">📲 Instala METTA en tu iPhone</div>
+  <div class="ii-text" id="ios-install-text"></div>
+</div>
+
+<button id="fab-quick" onclick="openQuick()" title="Registrar gasto rápido">+</button>
 
 <div id="login-screen">
   <div class="login-wrap">
@@ -888,6 +919,7 @@ html { overflow-x: hidden; }
         <div class="metric acc-aho"><div class="m-label">Ahorro</div><div class="m-value m-blue" id="m-ahorro">—</div><div class="m-sub" id="m-tasa-sub">Meta: ≥ 20%</div></div>
         <div class="metric acc-lib"><div class="m-label">Flujo libre</div><div class="m-value" id="m-libre">—</div><div class="m-sub" id="m-libre-sub"></div></div>
       </div>
+      <button onclick="abrirCoach()" style="width:100%;margin:0 0 16px;padding:12px;border:1px solid rgba(196,159,83,0.5);background:rgba(196,159,83,0.08);color:#0C1426;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);">💡 ¿Cómo voy este mes?</button>
       <!-- Patrimonio neto mini -->
       <div id="dash-patrimonio-banner"></div>
       <!-- Tarjetas TC mini -->
@@ -1326,6 +1358,44 @@ html { overflow-x: hidden; }
   </nav>
 </div>
 
+<!-- ── Modal Bienvenida ── -->
+<div class="modal-overlay hidden" id="modal-welcome">
+  <div class="modal" style="max-width:420px;">
+    <div style="text-align:center;margin-bottom:8px;">
+      <div style="width:64px;height:64px;margin:0 auto 8px;border-radius:50%;background:#0C1426;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:30px;font-weight:700;color:#C49F53;">M</span>
+      </div>
+      <div class="card-title" style="justify-content:center;">¡Bienvenido a METTA!</div>
+      <p style="font-size:13px;color:var(--text2);margin:6px 0 16px;">Ordena tus finanzas en 3 pasos simples:</p>
+    </div>
+    <div class="wlc-step"><div class="wlc-ico">➕</div><div><b>Registra</b><p>Anota un gasto o ingreso con el botón dorado +. Toma 2 toques.</p></div></div>
+    <div class="wlc-step"><div class="wlc-ico">📊</div><div><b>Mira cómo vas</b><p>El Dashboard te muestra cuánto gastas, ahorras y tu patrimonio.</p></div></div>
+    <div class="wlc-step"><div class="wlc-ico">🔔</div><div><b>Gastos automáticos</b><p>Conecta tu correo del banco y METTA detecta tus compras solo.</p></div></div>
+    <button class="btn btn-primary btn-full" onclick="cerrarWelcome()" style="margin-top:8px;">Empezar</button>
+  </div>
+</div>
+
+<!-- ── Modal Gasto rápido ── -->
+<div class="modal-overlay hidden" id="modal-quick">
+  <div class="modal" style="max-width:400px;">
+    <div class="card-title" style="margin-bottom:4px;">Gasto rápido</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:8px;">Monto y categoría, listo.</p>
+    <input type="number" id="quick-monto" placeholder="$ 0" inputmode="numeric" style="width:100%;padding:16px;font-size:26px;font-weight:700;text-align:center;border:1px solid var(--border);border-radius:12px;font-family:var(--font);box-sizing:border-box;color:var(--text);">
+    <div class="quick-cat-grid" id="quick-cat-grid"></div>
+    <button class="btn btn-danger btn-full" onclick="submitQuick()">Registrar gasto</button>
+    <div onclick="cerrarQuick()" style="text-align:center;margin-top:12px;font-size:13px;color:var(--text3);cursor:pointer;">Cancelar</div>
+  </div>
+</div>
+
+<!-- ── Modal Coach ¿Cómo voy? ── -->
+<div class="modal-overlay hidden" id="modal-coach">
+  <div class="modal" style="max-width:420px;">
+    <div class="card-title" style="margin-bottom:12px;">💡 ¿Cómo voy este mes?</div>
+    <div id="coach-body" style="font-size:14px;color:var(--text2);line-height:1.65;"></div>
+    <button class="btn btn-primary btn-full" onclick="cerrarCoach()" style="margin-top:16px;">Entendido</button>
+  </div>
+</div>
+
 <!-- ── Modal Gasto detectado (pendiente) ── -->
 <div class="modal-overlay hidden" id="modal-pendiente">
   <div class="modal" style="max-width:430px;">
@@ -1520,6 +1590,7 @@ async function logout() {
   try { await sbClient.auth.signOut(); } catch(e) {}
   currentUserId = null;
   SCRIPT_URL = '';
+  const fab = document.getElementById('fab-quick'); if (fab) fab.style.display = 'none';
   document.getElementById('login-user').value = '';
   document.getElementById('login-pass').value = '';
   document.getElementById('login-error').textContent = '';
@@ -1817,6 +1888,9 @@ async function loadAll() {
   if (cfgAdminCard) cfgAdminCard.style.display = esAdmin ? '' : 'none';
   loadPendientes();
   loadHogar();
+  const fab = document.getElementById('fab-quick'); if (fab) fab.style.display = 'flex';
+  maybeShowWelcome();
+  maybeShowIosInstall();
   maybeShowFeedback();
 }
 
@@ -2092,6 +2166,126 @@ async function unirseHogar() {
     loadAll();
   } catch(e) { toast('Error: ' + (e.message || e), '#C44B2B'); }
 }
+
+// ══════════════════════════════════════════════
+// MEJORAS UX: instalación iOS, bienvenida, gasto rápido, IA, coach
+// ══════════════════════════════════════════════
+function esIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+function esStandalone(){ return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; }
+function esSafariIOS(){ const ua = navigator.userAgent; return /safari/i.test(ua) && !/crios|fxios|edgios|gsa/i.test(ua); }
+function maybeShowIosInstall(){
+  if (!esIOS() || esStandalone()) return;
+  if (localStorage.getItem('metta_ios_install_x')) return;
+  const txt = document.getElementById('ios-install-text');
+  if (esSafariIOS())
+    txt.innerHTML = 'Toca <b>Compartir</b> <span class="ii-arrow">⬆️</span> abajo en Safari y luego <b>"Agregar a inicio"</b>. ¡La usarás como una app!';
+  else
+    txt.innerHTML = 'Para instalarla, abre este enlace en <b>Safari</b> (no en este navegador): copia el link y pégalo en Safari.';
+  document.getElementById('ios-install').classList.add('show');
+}
+function cerrarIosInstall(){ localStorage.setItem('metta_ios_install_x','1'); document.getElementById('ios-install').classList.remove('show'); }
+
+function maybeShowWelcome(){
+  if (localStorage.getItem('metta_welcome_done')) return;
+  document.getElementById('modal-welcome').classList.remove('hidden');
+}
+function cerrarWelcome(){ localStorage.setItem('metta_welcome_done','1'); document.getElementById('modal-welcome').classList.add('hidden'); }
+
+const QUICK_ICONS = [
+  {ico:'🛒', label:'Súper', cat:'Alimentación'},
+  {ico:'🍔', label:'Comida', cat:'Alimentación'},
+  {ico:'⛽', label:'Transporte', cat:'Transporte'},
+  {ico:'🏠', label:'Hogar', cat:'Vivienda'},
+  {ico:'💊', label:'Salud', cat:'Salud'},
+  {ico:'⚡', label:'Servicios', cat:'Servicios básicos'},
+  {ico:'🎬', label:'Ocio', cat:'Entretenimiento'},
+  {ico:'🛍️', label:'Otros', cat:'Otros'}
+];
+let quickCat = null;
+function buildQuickGrid(){
+  const g = document.getElementById('quick-cat-grid'); if (!g) return;
+  g.innerHTML = QUICK_ICONS.map((q,i)=>`<div class="qcat" onclick="pickQuickCat(${i},this)"><span class="qc-ico">${q.ico}</span>${q.label}</div>`).join('');
+}
+function pickQuickCat(i, el){
+  quickCat = QUICK_ICONS[i].cat;
+  document.querySelectorAll('#quick-cat-grid .qcat').forEach(c=>c.classList.remove('sel'));
+  if (el) el.classList.add('sel');
+}
+function openQuick(){
+  quickCat = null;
+  document.getElementById('quick-monto').value = '';
+  buildQuickGrid();
+  document.getElementById('modal-quick').classList.remove('hidden');
+  setTimeout(()=>{ const m=document.getElementById('quick-monto'); if(m) m.focus(); }, 120);
+}
+function cerrarQuick(){ document.getElementById('modal-quick').classList.add('hidden'); }
+async function submitQuick(){
+  const monto = parseInt(document.getElementById('quick-monto').value) || 0;
+  if (!monto) { toast('Ingresa el monto', '#C44B2B'); return; }
+  if (!quickCat) { toast('Elige una categoría', '#C44B2B'); return; }
+  const fecha = todayISO(), quien = getIntegrantes()[0], desc = quickCat;
+  const tx = { ID:'L'+Date.now(), Fecha:fecha, Tipo:'gasto', Categoria:quickCat, Descripcion:desc, Monto:monto, Quien:quien, Recurrente:'No' };
+  localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha,tipo:'gasto',categoria:quickCat,descripcion:desc,monto,quien,recurrente:false}});
+  cerrarQuick();
+  toast('Gasto registrado ✓', '#1D9E75');
+  renderDashboard(); renderTodayList();
+}
+
+// Auto-categorización por palabras clave
+const CAT_KEYWORDS = [
+  {cat:'Alimentación', kw:['super','jumbo','lider','tottus','unimarc','santa isabel','acuenta','almuerzo','comida','restaurant','cafe','feria','verdura','pan','delivery','pedidosya','rappi','uber eats']},
+  {cat:'Transporte', kw:['bencina','copec','shell','petrobras','combustible','uber','cabify','didi','metro','micro','bip','estacionamiento','tag','peaje','pasaje']},
+  {cat:'Salud', kw:['farmacia','cruz verde','salcobrand','ahumada','clinica','clínica','doctor','medico','médico','dental','isapre','consulta']},
+  {cat:'Servicios básicos', kw:['luz','agua','gas','internet','telefono','teléfono','cuenta','enel','aguas','vtr','movistar','entel','wom','gtd']},
+  {cat:'Entretenimiento', kw:['netflix','spotify','cine','disney','hbo','prime','juego','bar','cerveza','salida','concierto']},
+  {cat:'Educación', kw:['colegio','universidad','matricula','matrícula','curso','libro','utiles','útiles','mensualidad']},
+  {cat:'Vivienda', kw:['dividendo','arriendo','gastos comunes','hipoteca']},
+  {cat:'Pago Tarjeta', kw:['pago tarjeta','pago tc','abono tarjeta']}
+];
+function sugerirCategoria(desc){
+  const d = (desc||'').toLowerCase();
+  for (const c of CAT_KEYWORDS){ if (c.kw.some(k => d.includes(k))) return c.cat; }
+  return null;
+}
+function autoCatGasto(){
+  const sug = sugerirCategoria(document.getElementById('g-desc').value);
+  if (sug){ const sel = document.getElementById('g-cat'); if (sel && [...sel.options].some(o=>o.value===sug)) sel.value = sug; }
+}
+
+// Coach "¿Cómo voy?"
+function abrirCoach(){
+  const m = calcMetrics(cachedTx);
+  const catMap = {};
+  cachedTx.filter(t=>t.Tipo==='gasto').forEach(t=>{ catMap[t.Categoria]=(catMap[t.Categoria]||0)+Number(t.Monto); });
+  const top = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+  let pm = curMonth-1, py = curYear; if (pm<1){ pm=12; py--; }
+  const prefPrev = `${py}-${pad(pm)}`;
+  const gastoPrev = (localTx||[]).filter(t=>String(t.Fecha||'').startsWith(prefPrev) && t.Tipo==='gasto').reduce((s,t)=>s+Number(t.Monto),0);
+  const nombre = MONTHS[curMonth];
+  let html = '';
+  if (!cachedTx.length) {
+    html = `Aún no registras movimientos en <b>${nombre}</b>. Toca el botón dorado <b>+</b> para anotar tu primer gasto. 💪`;
+  } else {
+    html += `En <b>${nombre}</b> llevas <b>$${fmt(m.gas)}</b> en gastos y <b>$${fmt(m.ing)}</b> en ingresos.<br><br>`;
+    if (m.tasa >= 20) html += `🎉 Vas muy bien: estás ahorrando el <b>${m.tasa}%</b> de tus ingresos.<br>`;
+    else if (m.aho > 0) html += `Estás ahorrando el <b>${m.tasa}%</b>. Apunta al 20% para acelerar tu meta de vivienda.<br>`;
+    else html += `Este mes aún no registras ahorro — aunque sea un poco suma a tu meta.<br>`;
+    if (top) html += `Tu mayor gasto es <b>${top[0]}</b> ($${fmt(top[1])}).<br>`;
+    if (gastoPrev > 0) {
+      if (m.gas < gastoPrev) html += `👏 Vas gastando menos que el mes pasado ($${fmt(gastoPrev)}).`;
+      else if (m.gas > gastoPrev) html += `Ojo: vas gastando más que el mes pasado ($${fmt(gastoPrev)}).`;
+    }
+  }
+  document.getElementById('coach-body').innerHTML = html;
+  document.getElementById('modal-coach').classList.remove('hidden');
+}
+function cerrarCoach(){ document.getElementById('modal-coach').classList.add('hidden'); }
+
+window.addEventListener('load', () => {
+  try { maybeShowIosInstall(); } catch(e) {}
+  const g = document.getElementById('g-desc'); if (g) g.addEventListener('blur', autoCatGasto);
+});
 
 function parseMonto(val) {
   if (val === null || val === undefined || val === '') return 0;
@@ -2766,7 +2960,7 @@ function renderDashRecent() {
   if (!el) return;
   const rows = [...cachedTx].filter(dashFilterFn).sort((a,b) => (b.Fecha||'').localeCompare(a.Fecha||''));
   el.innerHTML = rows.length ? rows.map(t => txItemHTML(t)).join('')
-    : '<div class="empty"><div class="e-icon">📋</div>Sin movimientos de este tipo</div>';
+    : `<div class="empty"><div class="e-icon">📋</div>${dashFilter==='todos' ? 'Aún no hay movimientos este mes' : 'Sin movimientos de este tipo'}<br><button class="btn btn-primary" style="margin-top:12px;padding:9px 18px;" onclick="openQuick()">➕ Registrar el primero</button></div>`;
 }
 function setDashFilter(f, btn) {
   dashFilter = f;
