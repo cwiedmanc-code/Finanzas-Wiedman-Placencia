@@ -1236,9 +1236,27 @@ html { overflow-x: hidden; }
           <button class="btn btn-primary" onclick="addIntegrante()" style="white-space:nowrap;">Agregar</button>
         </div>
       </div>
+      <div class="card" id="cfg-hogar-card">
+        <div class="card-title">Mi hogar (compartir cuenta)</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Invita a tu familia a ver y registrar las mismas finanzas, cada uno con su propio usuario y clave.</p>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Miembros: <strong id="hogar-miembros">—</strong></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          <span style="font-size:13px;color:var(--text2);">Código de invitación:</span>
+          <strong id="hogar-codigo" style="font-size:16px;letter-spacing:1px;color:var(--text);">—</strong>
+          <button class="btn" onclick="copiarCodigoHogar()" style="padding:6px 12px;font-size:12px;">Copiar</button>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:14px;">
+          <label style="display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">¿Te invitaron? Ingresa el código</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="hogar-join-code" placeholder="Código del hogar" style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;box-sizing:border-box;">
+            <button class="btn btn-primary" onclick="unirseHogar()" style="white-space:nowrap;">Unirme</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:8px;">Al unirte a otro hogar verás SUS finanzas en lugar de las tuyas.</div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-title">Tu cuenta</div>
-        <p style="font-size:13px;color:var(--text2);line-height:1.6">Sesión iniciada como <strong id="cfg-email">—</strong>.<br>Tus datos son privados: solo tú ves tu información.</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6">Sesión iniciada como <strong id="cfg-email">—</strong>.<br>Tus datos son privados de tu hogar: solo tú y quienes invites los ven.</p>
       </div>
       <div class="card" style="border-color:var(--danger);margin-top:8px;">
         <div class="card-title" style="color:var(--danger)">Sesión</div>
@@ -1716,8 +1734,8 @@ async function apiPost(body) {
     }
     if (action === 'savePatrimonio') {
       const d = body.data || {};
-      await sbClient.from('activos').delete().eq('user_id', uid);
-      await sbClient.from('pasivos').delete().eq('user_id', uid);
+      await sbClient.from('activos').delete().neq('id', '');
+      await sbClient.from('pasivos').delete().neq('id', '');
       if ((d.activos||[]).length) {
         const { error } = await sbClient.from('activos').insert(d.activos.map(a => ({
           id:a.id, user_id:uid, tipo:a.tipo, nombre:a.nombre, valor_mercado:Number(a.valor_mercado)||0,
@@ -1740,9 +1758,9 @@ async function apiPost(body) {
     }
     if (action === 'saveTarjetas') {
       const d = body.data || {};
-      await sbClient.from('tarjetas').delete().eq('user_id', uid);
-      await sbClient.from('compras_tc').delete().eq('user_id', uid);
-      await sbClient.from('pagos_tc').delete().eq('user_id', uid);
+      await sbClient.from('tarjetas').delete().neq('id', '');
+      await sbClient.from('compras_tc').delete().neq('id', '');
+      await sbClient.from('pagos_tc').delete().neq('id', '');
       if ((d.tarjetas||[]).length) {
         const { error } = await sbClient.from('tarjetas').insert(d.tarjetas.map(t => ({
           id:t.id, user_id:uid, nombre:t.nombre, banco:t.banco||'', limite:Number(t.limite)||0,
@@ -1798,6 +1816,7 @@ async function loadAll() {
   const cfgAdminCard = document.getElementById('cfg-admin-card');
   if (cfgAdminCard) cfgAdminCard.style.display = esAdmin ? '' : 'none';
   loadPendientes();
+  loadHogar();
   maybeShowFeedback();
 }
 
@@ -2038,6 +2057,40 @@ async function descartarPendiente() {
   const p = _pendientes[_pendIdx]; if (!p) return;
   try { await sbClient.from('pendientes').update({ estado:'descartado' }).eq('id', p.id); } catch(e) {}
   _pendIdx++; mostrarPendiente();
+}
+
+// ══════════════════════════════════════════════
+// MI HOGAR (cuenta compartida con invitación)
+// ══════════════════════════════════════════════
+async function loadHogar() {
+  try {
+    const { data, error } = await sbClient.rpc('mi_hogar_info');
+    if (error || !data) return;
+    const miembros = data.miembros || [];
+    const elM = document.getElementById('hogar-miembros');
+    if (elM) elM.textContent = miembros.length ? miembros.join(', ') : '—';
+    const elC = document.getElementById('hogar-codigo');
+    if (elC) elC.textContent = data.invite_code || '—';
+  } catch(e) {}
+}
+function copiarCodigoHogar() {
+  const c = (document.getElementById('hogar-codigo').textContent || '').trim();
+  if (!c || c === '—') return;
+  if (navigator.clipboard) navigator.clipboard.writeText(c);
+  toast('Código copiado: ' + c, '#1D9E75');
+}
+async function unirseHogar() {
+  const code = (document.getElementById('hogar-join-code').value || '').trim();
+  if (!code) { toast('Ingresa el código', '#C44B2B'); return; }
+  if (!confirm('Te unirás a ese hogar y verás SUS finanzas en lugar de las actuales. ¿Continuar?')) return;
+  try {
+    const { data, error } = await sbClient.rpc('unirse_a_hogar', { p_codigo: code });
+    if (error) { toast('Error: ' + error.message, '#C44B2B'); return; }
+    if (data === 'codigo_invalido') { toast('Código inválido', '#C44B2B'); return; }
+    toast('¡Te uniste al hogar! ✓', '#1D9E75');
+    document.getElementById('hogar-join-code').value = '';
+    loadAll();
+  } catch(e) { toast('Error: ' + (e.message || e), '#C44B2B'); }
 }
 
 function parseMonto(val) {
