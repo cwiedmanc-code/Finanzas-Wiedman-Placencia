@@ -949,22 +949,9 @@ html { overflow-x: hidden; }
         <div id="dash-comparativo"><div class="loader"><div class="spinner"></div>Cargando...</div></div>
         <div id="dash-comparativo-detail" style="margin-top:12px"></div>
       </div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title">Gastos por categoría</div>
-          <div id="dash-cats" style="width:100%"><div class="loader"><div class="spinner"></div>Cargando...</div></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Movimientos del mes</div>
-          <div id="dash-recent-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-            <button class="drt active" onclick="setDashFilter('todos',this)">Todos</button>
-            <button class="drt" onclick="setDashFilter('gasto',this)">Gastos</button>
-            <button class="drt" onclick="setDashFilter('ingreso',this)">Ingresos</button>
-            <button class="drt" onclick="setDashFilter('ahorro',this)">Ahorro</button>
-            <button class="drt" onclick="setDashFilter('abono',this)">Abono TC</button>
-          </div>
-          <div class="tx-list" id="dash-recent" style="max-height:520px;overflow-y:auto;padding-right:4px;width:100%"></div>
-        </div>
+      <div class="card">
+        <div class="card-title">Gastos por categoría</div>
+        <div id="dash-cats" style="width:100%"><div class="loader"><div class="spinner"></div>Cargando...</div></div>
       </div>
     </div>
 
@@ -1087,13 +1074,13 @@ html { overflow-x: hidden; }
         </div>
       </div>
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div class="card-title" style="margin:0" id="hist-count">Cargando...</div>
-          <select id="hist-filter" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text2)" onchange="renderHistorial()">
-            <option value="">Todos</option>
-            <option value="gasto">Solo gastos</option>
-            <option value="ingreso">Solo ingresos</option>
-          </select>
+        <div class="card-title" id="hist-count" style="margin-bottom:12px">Cargando...</div>
+        <div id="hist-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="drt active" onclick="setHistFilter('todos',this)">Todos</button>
+          <button class="drt" onclick="setHistFilter('gasto',this)">Gastos</button>
+          <button class="drt" onclick="setHistFilter('ingreso',this)">Ingresos</button>
+          <button class="drt" onclick="setHistFilter('ahorro',this)">Ahorro</button>
+          <button class="drt" onclick="setHistFilter('abono',this)">Abono TC</button>
         </div>
         <div class="tx-list" id="hist-list"></div>
       </div>
@@ -3002,13 +2989,25 @@ function setDashFilter(f, btn) {
   renderDashRecent();
 }
 
+let histFilter = 'todos';
+function histFilterFn(t) {
+  if (histFilter === 'todos')  return true;
+  if (histFilter === 'abono')  return t.Categoria === 'Pago Tarjeta';
+  if (histFilter === 'gasto')  return t.Tipo === 'gasto' && t.Categoria !== 'Pago Tarjeta';
+  return t.Tipo === histFilter; // ingreso | ahorro
+}
 function renderHistorial() {
-  const filter = document.getElementById('hist-filter')?.value || '';
-  let rows = filter ? cachedTx.filter(t=>t.Tipo===filter) : cachedTx;
-  rows = [...rows].sort((a,b) => b.Fecha?.localeCompare(a.Fecha));
-  document.getElementById('hist-count').textContent = `${rows.length} movimiento${rows.length!==1?'s':''} en ${MONTHS[curMonth]} ${curYear}`;
-  document.getElementById('hist-list').innerHTML = rows.length ? rows.map(t => txItemHTML(t)).join('') :
-    '<div class="empty"><div class="e-icon">📋</div>Sin registros este mes</div>';
+  const rows = [...cachedTx].filter(histFilterFn).sort((a,b) => (b.Fecha||'').localeCompare(a.Fecha||''));
+  const cnt = document.getElementById('hist-count');
+  if (cnt) cnt.textContent = `${rows.length} movimiento${rows.length!==1?'s':''} en ${MONTHS[curMonth]} ${curYear}`;
+  document.getElementById('hist-list').innerHTML = rows.length ? rows.map(t => txItemHTML(t)).join('')
+    : '<div class="empty"><div class="e-icon">📋</div>Sin movimientos de este tipo</div>';
+}
+function setHistFilter(f, btn) {
+  histFilter = f;
+  document.querySelectorAll('#hist-tabs .drt').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderHistorial();
 }
 
 function renderTodayList() {
