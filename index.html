@@ -590,6 +590,20 @@ html { overflow-x: hidden; }
 .wlc-ico { width:38px; height:38px; border-radius:10px; background:rgba(196,159,83,0.14); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
 .wlc-step b { color:var(--text); font-size:14px; }
 .wlc-step p { font-size:13px; color:var(--text2); margin-top:2px; line-height:1.45; }
+/* ── Presupuestos ── */
+.presup-row { margin-bottom:14px; }
+.presup-top { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:5px; color:var(--text); }
+.presup-top .pr-rest { font-size:12px; color:var(--text3); }
+.presup-track { height:9px; background:var(--border); border-radius:5px; overflow:hidden; }
+.presup-fill { height:100%; border-radius:5px; transition:width .4s ease; }
+/* ── Chat IA ── */
+.chat-thread { display:flex; flex-direction:column; gap:10px; max-height:400px; overflow-y:auto; margin-bottom:12px; padding:4px; }
+.chat-msg { max-width:86%; padding:10px 13px; border-radius:14px; font-size:14px; line-height:1.55; white-space:pre-wrap; }
+.chat-user { align-self:flex-end; background:#0C1426; color:#fff; border-bottom-right-radius:4px; }
+.chat-bot { align-self:flex-start; background:var(--bg); color:var(--text); border:1px solid var(--border); border-bottom-left-radius:4px; }
+/* ── Recurrentes ── */
+.rec-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-top:1px solid var(--border); }
+.rec-item:first-child { border-top:none; }
 @media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
@@ -939,6 +953,13 @@ html { overflow-x: hidden; }
         <div class="metric acc-lib"><div class="m-label">Flujo libre</div><div class="m-value" id="m-libre">—</div><div class="m-sub" id="m-libre-sub"></div></div>
       </div>
       <button onclick="abrirCoach()" style="width:100%;margin:0 0 16px;padding:12px;border:1px solid rgba(196,159,83,0.5);background:rgba(196,159,83,0.08);color:#0C1426;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);">💡 ¿Cómo voy este mes?</button>
+      <div class="card" id="presup-card" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">Presupuestos del mes</div>
+          <button class="btn btn-sm" onclick="abrirPresup()" style="padding:6px 12px;font-size:12px;">Configurar</button>
+        </div>
+        <div id="presup-list"></div>
+      </div>
       <!-- Patrimonio neto mini -->
       <div id="dash-patrimonio-banner"></div>
       <!-- Tarjetas TC mini -->
@@ -1092,18 +1113,24 @@ html { overflow-x: hidden; }
       <div class="card" style="margin-bottom:16px">
         <div class="card-title">Consulta al asistente financiero</div>
         <div class="ai-quick">
-          <button onclick="askAI('¿En qué categoría estoy gastando más? Dame 3 acciones concretas para reducir.')">Top gastos ↗</button>
-          <button onclick="askAI('¿Cuánto me falta para la meta de vivienda? ¿Cuándo lo lograré con mi ritmo actual?')">Meta vivienda ↗</button>
-          <button onclick="askAI('¿Qué porcentaje de mis ingresos estoy ahorrando? ¿Cómo podría llegar al 25%?')">Tasa de ahorro ↗</button>
-          <button onclick="askAI('Dame un plan de 6 meses para aumentar mi ahorro mensual en un 30%, con acciones específicas.')">Plan 6 meses ↗</button>
-          <button onclick="askAI('¿Qué instrumentos de inversión en Chile me recomiendas para el dinero que tengo libre cada mes?')">Inversiones ↗</button>
-          <button onclick="askAI('Analiza mi patrimonio neto actual. ¿Cómo evoluciona y qué debería optimizar?')">Patrimonio ↗</button>
+          <button onclick="chatSend('¿En qué gasté más este mes?')">Top gastos</button>
+          <button onclick="chatSend('¿Cuánto ahorré este mes?')">Mi ahorro</button>
+          <button onclick="chatSend('¿Cómo voy con la meta de vivienda?')">Meta vivienda</button>
+          <button onclick="chatSend('¿Qué instrumentos de inversión me recomiendas en Chile?')">Inversiones</button>
         </div>
+        <div class="chat-thread" id="ai-chat"><div class="chat-bot chat-msg">¡Hola! 👋 Pregúntame sobre tus finanzas. Por ejemplo: "¿en qué gasté más?", "¿cuánto ahorré?", "¿cómo voy con la meta?".</div></div>
         <div class="ai-input-row">
-          <input type="text" id="ai-query" placeholder="Ej: ¿Cuándo puedo comprar la tercera vivienda?" onkeydown="if(event.key==='Enter')askAI()">
-          <button class="btn btn-primary" onclick="askAI()">Analizar</button>
+          <input type="text" id="ai-query" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')chatSend()">
+          <button class="btn btn-primary" onclick="chatSend()">Enviar</button>
         </div>
-        <div class="ai-response" id="ai-output">Selecciona una pregunta rápida o escribe tu consulta...</div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="card-title" style="margin:0;">Gastos recurrentes</div>
+          <button class="btn btn-sm" onclick="detectarRecurrentes()" style="padding:6px 12px;font-size:12px;">Detectar</button>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:8px;">Encuentra pagos que se repiten cada mes (suscripciones, cuotas, dividendo) para revisarlos.</p>
+        <div id="rec-list"><span style="font-size:13px;color:var(--text3);">Toca "Detectar" para buscar.</span></div>
       </div>
       <div class="card">
         <div class="card-title">Recomendaciones automáticas del mes</div>
@@ -1358,6 +1385,26 @@ html { overflow-x: hidden; }
       <span class="bn-lbl">Config</span>
     </button>
   </nav>
+</div>
+
+<!-- ── Modal Presupuestos ── -->
+<div class="modal-overlay hidden" id="modal-presup">
+  <div class="modal" style="max-width:440px;">
+    <div class="card-title" style="margin-bottom:6px;">Presupuestos por categoría</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Define un tope mensual. Te avisaremos al acercarte. Deja en 0 las que no quieras controlar.</p>
+    <div id="presup-inputs" style="max-height:52vh;overflow-y:auto;"></div>
+    <button class="btn btn-primary btn-full" onclick="guardarPresup()" style="margin-top:14px;">Guardar</button>
+    <div onclick="cerrarPresup()" style="text-align:center;margin-top:12px;font-size:13px;color:var(--text3);cursor:pointer;">Cancelar</div>
+  </div>
+</div>
+
+<!-- ── Modal Resumen mensual ── -->
+<div class="modal-overlay hidden" id="modal-resumen">
+  <div class="modal" style="max-width:420px;">
+    <div class="card-title" style="margin-bottom:12px;">📅 Resumen del mes</div>
+    <div id="resumen-body" style="font-size:14px;color:var(--text2);line-height:1.65;"></div>
+    <button class="btn btn-primary btn-full" onclick="cerrarResumen()" style="margin-top:16px;">Entendido</button>
+  </div>
 </div>
 
 <!-- ── Modal Bienvenida ── -->
@@ -1894,6 +1941,7 @@ async function loadAll() {
   maybeShowWelcome();
   maybeShowIosInstall();
   maybeShowFeedback();
+  maybeShowResumen();
 }
 
 // ── Nombre personalizable del espacio (por usuario) ──
@@ -2301,6 +2349,119 @@ function abrirCoach(){
   document.getElementById('modal-coach').classList.remove('hidden');
 }
 function cerrarCoach(){ document.getElementById('modal-coach').classList.add('hidden'); }
+
+// ── PRESUPUESTOS por categoría + alertas ──
+const CATS_GASTO = ['Vivienda','Alimentación','Transporte','Salud','Educación','Servicios básicos','Entretenimiento','Deudas','Pago Tarjeta','Familia','Otros'];
+function getPresupuestos(){ try { const o = JSON.parse(metaData.presupuestos||'{}'); return (o && typeof o==='object') ? o : {}; } catch(e){ return {}; } }
+function gastoPorCat(){ const m={}; cachedTx.filter(t=>t.Tipo==='gasto').forEach(t=>{ m[t.Categoria]=(m[t.Categoria]||0)+Number(t.Monto); }); return m; }
+function renderPresupuestos(){
+  const cont = document.getElementById('presup-list'); if (!cont) return;
+  const pres = getPresupuestos(), gasto = gastoPorCat();
+  const cats = Object.keys(pres).filter(c=>Number(pres[c])>0);
+  if (!cats.length){ cont.innerHTML = '<span style="font-size:13px;color:var(--text3)">Aún no defines presupuestos. Toca "Configurar" para fijar topes por categoría.</span>'; return; }
+  let html = '';
+  const exc = cats.filter(c=>(gasto[c]||0)>Number(pres[c])).length;
+  if (exc) html += `<div style="font-size:12.5px;color:#E24B4A;margin-bottom:12px;">⚠️ ${exc} categoría(s) sobre el presupuesto este mes.</div>`;
+  html += cats.map(c=>{
+    const tope=Number(pres[c])||0, g=gasto[c]||0, pct=tope>0?Math.min(100,Math.round(g/tope*100)):0;
+    const over=g>tope, near=!over&&g>=tope*0.85, col=over?'#E24B4A':(near?'#C49F53':'#1D9E75');
+    return `<div class="presup-row"><div class="presup-top"><span>${c}</span><span class="pr-rest">${over?'Excedido $'+fmt(g-tope):'Queda $'+fmt(tope-g)}</span></div><div class="presup-track"><div class="presup-fill" style="width:${pct}%;background:${col}"></div></div><div style="font-size:11px;color:var(--text3);margin-top:3px;">$${fmt(g)} de $${fmt(tope)}</div></div>`;
+  }).join('');
+  cont.innerHTML = html;
+}
+function abrirPresup(){
+  const pres = getPresupuestos();
+  document.getElementById('presup-inputs').innerHTML = CATS_GASTO.map(c=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="flex:1;font-size:14px;color:var(--text);">${c}</span><input type="number" min="0" data-cat="${c}" value="${pres[c]||''}" placeholder="0" style="width:120px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:14px;box-sizing:border-box;"></div>`).join('');
+  document.getElementById('modal-presup').classList.remove('hidden');
+}
+function cerrarPresup(){ document.getElementById('modal-presup').classList.add('hidden'); }
+async function guardarPresup(){
+  const obj={};
+  document.querySelectorAll('#presup-inputs input').forEach(i=>{ const v=parseInt(i.value)||0; if (v>0) obj[i.dataset.cat]=v; });
+  metaData = metaData||{}; metaData.presupuestos = JSON.stringify(obj);
+  if (SCRIPT_URL) await apiPost({action:'updateMeta', data:{ presupuestos: JSON.stringify(obj) }});
+  cerrarPresup(); renderPresupuestos(); toast('Presupuestos guardados ✓','#1D9E75');
+}
+
+// ── DETECCIÓN de gastos recurrentes ──
+async function detectarRecurrentes(){
+  const cont = document.getElementById('rec-list');
+  cont.innerHTML = '<span style="font-size:13px;color:var(--text3)">Analizando tu historial…</span>';
+  let rows=[];
+  try { const { data } = await sbClient.from('transacciones').select('descripcion,monto,fecha').eq('tipo','gasto'); rows = data||[]; }
+  catch(e){ cont.innerHTML = '<span style="font-size:13px;color:var(--danger)">No se pudo analizar.</span>'; return; }
+  const map={};
+  rows.forEach(r=>{
+    const key=(r.descripcion||'').toLowerCase().trim().replace(/\d+/g,'').replace(/\s+/g,' ').trim();
+    if (!key || key.length<3) return;
+    const mes=String(r.fecha||'').substring(0,7);
+    if (!map[key]) map[key]={ desc:r.descripcion, meses:new Set(), total:0, n:0 };
+    map[key].meses.add(mes); map[key].total+=Number(r.monto)||0; map[key].n++;
+  });
+  const rec=Object.values(map).filter(x=>x.meses.size>=3).map(x=>({desc:x.desc, prom:Math.round(x.total/x.n), meses:x.meses.size})).sort((a,b)=>b.prom-a.prom).slice(0,15);
+  if (!rec.length){ cont.innerHTML='<span style="font-size:13px;color:var(--text3)">No se detectaron gastos recurrentes (en 3 o más meses).</span>'; return; }
+  cont.innerHTML = rec.map(r=>`<div class="rec-item"><div><div style="font-size:14px;color:var(--text);">${r.desc}</div><div style="font-size:12px;color:var(--text3);">aparece en ${r.meses} meses</div></div><div style="font-weight:600;color:var(--text);white-space:nowrap;">~$${fmt(r.prom)}/mes</div></div>`).join('');
+}
+
+// ── CHAT IA (respuestas locales + IA) ──
+function chatAppend(text, who){
+  const t=document.getElementById('ai-chat');
+  const d=document.createElement('div'); d.className='chat-msg '+(who==='user'?'chat-user':'chat-bot'); d.textContent=text;
+  t.appendChild(d); t.scrollTop=t.scrollHeight; return d;
+}
+function responderLocal(q){
+  const d=(q||'').toLowerCase();
+  const m=calcMetrics(cachedTx);
+  const catMap={}; cachedTx.filter(t=>t.Tipo==='gasto').forEach(t=>{ catMap[t.Categoria]=(catMap[t.Categoria]||0)+Number(t.Monto); });
+  const top=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+  if (/gast.*m[aá]s|m[aá]s gast|mayor gasto|top gasto|en qu[eé] gast/.test(d)) return top?`Este mes tu mayor gasto es "${top[0]}" con $${fmt(top[1])}. Tus gastos totales van en $${fmt(m.gas)}.`:'Aún no tienes gastos registrados este mes.';
+  if (/ahorr/.test(d)) return `Este mes llevas $${fmt(m.aho)} en ahorro (${m.tasa}% de tus ingresos de $${fmt(m.ing)}). ${m.tasa>=20?'¡Vas muy bien!':'Apunta al 20% para acelerar tu meta.'}`;
+  if (/cu[aá]nto gast|gasto total|total gast/.test(d)) return `Este mes llevas $${fmt(m.gas)} en gastos.`;
+  if (/ingreso|sueldo|gan[eé]/.test(d)) return `Tus ingresos de este mes suman $${fmt(m.ing)}.`;
+  if (/libre|me queda|disponible/.test(d)) return `Tu flujo libre este mes (ingresos − gastos − ahorro) es $${fmt(m.lib)}.`;
+  if (/meta|vivienda|casa|\bpie\b/.test(d)){
+    const precio=Number(metaData.precio_objetivo)||0, pie=Number(metaData.pie_pct)||20, acu=Number(metaData.ahorro_acumulado)||0;
+    const pieM=precio*(pie/100), falta=Math.max(0,pieM-acu), pct=pieM>0?Math.round(acu/pieM*100):0;
+    return precio>0?`Para el pie (${pie}% de $${fmt(precio)} = $${fmt(pieM)}) llevas $${fmt(acu)} (${pct}%). Te faltan $${fmt(falta)}.`:'Configura tu meta en la sección "Meta vivienda" y te doy el detalle.';
+  }
+  return null;
+}
+async function chatSend(q){
+  const query = q || document.getElementById('ai-query').value.trim();
+  if (!query) return;
+  document.getElementById('ai-query').value='';
+  chatAppend(query,'user');
+  const local=responderLocal(query);
+  if (local){ chatAppend(local,'bot'); return; }
+  const pend=chatAppend('Pensando…','bot');
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:700, system:'Eres un asesor financiero experto para Chile. Responde en español, breve, concreto y accionable, en pesos chilenos. Máximo 200 palabras.', messages:[{ role:'user', content: buildContext()+'\n\nPREGUNTA: '+query }] }) });
+    const dd=await res.json(); pend.textContent = dd.content?.filter(c=>c.type==='text').map(c=>c.text).join('') || 'No pude responder ahora.';
+  } catch(e){ pend.textContent='No pude conectar con el asistente ahora. Pero puedo responder al instante: "¿en qué gasté más?", "¿cuánto ahorré?", "¿cómo voy con la meta?".'; }
+}
+
+// ── RESUMEN mensual automático ──
+async function maybeShowResumen(){
+  const key = `${curYear}-${pad(curMonth)}`;
+  if (localStorage.getItem('metta_resumen_visto')===key) return;
+  let pm=curMonth-1, py=curYear; if (pm<1){ pm=12; py--; }
+  let rows=[];
+  try { const d=await apiGet({action:'getTx', year:py, month:pm}); rows=(d&&d.rows)||[]; } catch(e){}
+  localStorage.setItem('metta_resumen_visto', key);
+  if (!rows.length) return;
+  const ing=rows.filter(r=>r.Tipo==='ingreso').reduce((s,r)=>s+Number(r.Monto),0);
+  const gas=rows.filter(r=>r.Tipo==='gasto').reduce((s,r)=>s+Number(r.Monto),0);
+  const aho=rows.filter(r=>r.Tipo==='ahorro').reduce((s,r)=>s+Number(r.Monto),0);
+  const tasa=ing>0?Math.round(aho/ing*100):0;
+  const catMap={}; rows.filter(r=>r.Tipo==='gasto').forEach(r=>{ catMap[r.Categoria]=(catMap[r.Categoria]||0)+Number(r.Monto); });
+  const top=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+  let html=`En <b>${MONTHS[pm]} ${py}</b>:<br>• Ingresos: <b>$${fmt(ing)}</b><br>• Gastos: <b>$${fmt(gas)}</b><br>• Ahorro: <b>$${fmt(aho)}</b> (${tasa}%)<br>`;
+  if (top) html+=`• Mayor gasto: <b>${top[0]}</b> ($${fmt(top[1])})<br>`;
+  html+=`<br>${tasa>=20?'🎉 ¡Buen mes! Mantén ese ritmo de ahorro.':'💪 Este mes apunta a ahorrar un poco más.'}`;
+  document.getElementById('resumen-body').innerHTML=html;
+  document.getElementById('modal-resumen').classList.remove('hidden');
+}
+function cerrarResumen(){ document.getElementById('modal-resumen').classList.add('hidden'); }
 
 window.addEventListener('load', () => {
   try { maybeShowIosInstall(); } catch(e) {}
@@ -2963,6 +3124,7 @@ function renderDashboard() {
   ).join('') : '<div class="empty"><div class="e-icon">📊</div>Sin gastos este mes</div>';
 
   renderDashRecent();
+  renderPresupuestos();
 
   fillDeudaSelect();
   fillInversionSelect();
