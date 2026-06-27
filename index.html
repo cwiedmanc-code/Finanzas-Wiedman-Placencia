@@ -604,6 +604,15 @@ html { overflow-x: hidden; }
 /* ── Recurrentes ── */
 .rec-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-top:1px solid var(--border); }
 .rec-item:first-child { border-top:none; }
+/* ── Próximos pagos ── */
+.rp-item { display:flex; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--border); }
+.rp-item:first-child { border-top:none; }
+.rp-ico { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:21px; flex-shrink:0; background:rgba(196,159,83,0.14); }
+.rp-name { font-size:14px; color:var(--text); font-weight:500; }
+.rp-sub { font-size:12px; color:var(--text3); margin-top:2px; }
+.rp-pill { display:inline-block; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+.rp-pill.rp-urgent { animation: rpPulse 1.6s ease-in-out infinite; }
+@keyframes rpPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(226,75,74,0.45); } 60%{ box-shadow:0 0 0 7px rgba(226,75,74,0); } }
 @media (prefers-reduced-motion: reduce){ #login-screen::before,#login-screen::after,.login-logo,.login-logo .ring,.login-logo .mletter,.login-brand,.login-box{animation:none!important;} .login-logo .ring{stroke-dashoffset:0;} .login-logo .mletter{opacity:1;} }
 </style>
 </head>
@@ -970,7 +979,7 @@ html { overflow-x: hidden; }
         <div id="presup-list"></div>
       </div>
       <div class="card" id="recordatorios-card" style="margin-bottom:16px;display:none;">
-        <div class="card-title">Próximos pagos</div>
+        <div class="card-title">🔔 Próximos pagos</div>
         <div id="recordatorios-list"></div>
       </div>
       <!-- Patrimonio neto mini -->
@@ -2560,9 +2569,16 @@ function renderRecordatorios(){
   items.sort((a,b)=>a.dias-b.dias);
   if(!items.length){ card.style.display='none'; return; }
   card.style.display='';
-  cont.innerHTML=items.slice(0,6).map(i=>{
-    const urg=i.dias<=3, txt= i.dias===0?'hoy':(i.dias===1?'mañana':'en '+i.dias+' días');
-    return `<div class="rec-item"><div style="font-size:14px;color:var(--text);">${i.nombre}</div><div style="font-size:13px;font-weight:600;color:${urg?'#E24B4A':'var(--text2)'};">${txt} · ${i.fecha.getDate()} ${MESES_CORTOS[i.fecha.getMonth()+1]}</div></div>`;
+  cont.innerHTML=items.slice(0,6).map((i,idx)=>{
+    const urg=i.dias<=3, soon=!urg&&i.dias<=7;
+    const emoji=urg?'🔴':(soon?'🟡':'🟢');
+    const pillStyle=urg?'background:rgba(226,75,74,0.15);color:#E24B4A;':(soon?'background:rgba(196,159,83,0.2);color:#9a7b30;':'background:rgba(24,95,165,0.12);color:#185FA5;');
+    const txt=i.dias===0?'¡Hoy!':(i.dias===1?'Mañana':'En '+i.dias+' días');
+    return `<div class="rp-item" style="animation:fadeUp .4s ease ${idx*0.06}s both;">
+      <div class="rp-ico">💳</div>
+      <div style="flex:1;min-width:0;"><div class="rp-name">${i.nombre}</div><div class="rp-sub">${emoji} Vence el ${i.fecha.getDate()} ${MESES_CORTOS[i.fecha.getMonth()+1]}</div></div>
+      <span class="rp-pill ${urg?'rp-urgent':''}" style="${pillStyle}">${txt}</span>
+    </div>`;
   }).join('');
 }
 
