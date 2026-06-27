@@ -609,6 +609,15 @@ html { overflow-x: hidden; }
 </head>
 <body>
 
+<div id="lock-screen" style="position:fixed;inset:0;z-index:100002;background:#0C1426;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:72px;height:72px;border-radius:50%;border:3px solid #C49F53;display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span style="font-size:34px;font-weight:700;color:#C49F53;">M</span></div>
+  <div style="color:#fff;font-size:18px;font-weight:600;margin-bottom:6px;">METTA bloqueada</div>
+  <div style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:20px;">Ingresa tu PIN para continuar</div>
+  <input type="password" id="lock-pin" inputmode="numeric" maxlength="6" autocomplete="off" style="width:170px;text-align:center;font-size:24px;letter-spacing:8px;padding:12px;border:1px solid rgba(255,255,255,0.2);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;box-sizing:border-box;" onkeydown="if(event.key==='Enter')verificarPin()">
+  <div id="lock-error" style="color:#ff8a80;font-size:12px;height:16px;margin-top:10px;"></div>
+  <button onclick="verificarPin()" style="margin-top:8px;padding:11px 32px;background:linear-gradient(135deg,#D9B968,#C49F53);color:#0C1426;border:none;border-radius:10px;font-weight:600;cursor:pointer;">Desbloquear</button>
+</div>
+
 <div id="update-banner">
   <span class="ub-txt"><span class="ub-dot"></span>Nueva versión de METTA<span class="ub-long"> disponible</span></span>
   <button class="ub-btn" onclick="applyUpdate()">Actualizar</button>
@@ -960,6 +969,10 @@ html { overflow-x: hidden; }
         </div>
         <div id="presup-list"></div>
       </div>
+      <div class="card" id="recordatorios-card" style="margin-bottom:16px;display:none;">
+        <div class="card-title">Próximos pagos</div>
+        <div id="recordatorios-list"></div>
+      </div>
       <!-- Patrimonio neto mini -->
       <div id="dash-patrimonio-banner"></div>
       <!-- Tarjetas TC mini -->
@@ -1169,6 +1182,12 @@ html { overflow-x: hidden; }
         </div>
       </div>
 
+      <div class="card" id="pat-hist-card" style="display:none;">
+        <div class="card-title">Evolución del patrimonio neto</div>
+        <div id="pat-hist-chart" style="display:flex;align-items:flex-end;gap:6px;height:140px;margin-top:14px;"></div>
+        <div id="pat-hist-labels" style="display:flex;gap:6px;margin-top:6px;"></div>
+      </div>
+
       <!-- Resumen patrimonio neto -->
       <div id="pat-banner"></div>
 
@@ -1322,6 +1341,19 @@ html { overflow-x: hidden; }
       <div class="card">
         <div class="card-title">Tu cuenta</div>
         <p style="font-size:13px;color:var(--text2);line-height:1.6">Sesión iniciada como <strong id="cfg-email">—</strong>.<br>Tus datos son privados de tu hogar: solo tú y quienes invites los ven.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Seguridad</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Bloquea METTA con un PIN al abrirla, para que nadie vea tus finanzas si toma tu teléfono.</p>
+        <div id="seg-estado" style="font-size:13px;margin-bottom:12px;color:var(--text2);">PIN desactivado.</div>
+        <button class="btn btn-primary" id="seg-btn" onclick="configurarPin()">Activar PIN</button>
+        <button class="btn" id="seg-btn-off" onclick="quitarPin()" style="display:none;background:var(--danger);color:#fff;border:none;margin-left:8px;">Quitar PIN</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Mis datos</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">Tus datos son tuyos: descárgalos o bórralos cuando quieras. No los vendemos ni los compartimos.</p>
+        <button class="btn" onclick="exportarDatos()">⬇️ Exportar (CSV)</button>
+        <button class="btn" onclick="borrarMisDatos()" style="background:var(--danger);color:#fff;border:none;margin-left:8px;">Borrar mis datos</button>
       </div>
       <div class="card" style="border-color:var(--danger);margin-top:8px;">
         <div class="card-title" style="color:var(--danger)">Sesión</div>
@@ -1663,6 +1695,7 @@ window.addEventListener('load', async () => {
       currentUserEmail = data.session.user.email || '';
       SCRIPT_URL = 'supabase';
       document.getElementById('login-screen').classList.add('hidden');
+      if (pinActivo()) mostrarLock();
       checkConnection();
       loadAll();
     } else {
@@ -1937,6 +1970,9 @@ async function loadAll() {
   if (cfgAdminCard) cfgAdminCard.style.display = esAdmin ? '' : 'none';
   loadPendientes();
   loadHogar();
+  renderSeguridad();
+  guardarSnapshotPatrimonio();
+  renderPatrimonioHistorico();
   const fab = document.getElementById('fab-quick'); if (fab) fab.style.display = 'flex';
   maybeShowWelcome();
   maybeShowIosInstall();
@@ -2462,6 +2498,93 @@ async function maybeShowResumen(){
   document.getElementById('modal-resumen').classList.remove('hidden');
 }
 function cerrarResumen(){ document.getElementById('modal-resumen').classList.add('hidden'); }
+
+// ── SEGURIDAD: bloqueo con PIN ──
+function pinActivo(){ return !!localStorage.getItem('metta_pin'); }
+function hashPin(p){ let h=0; const s='metta:'+p; for(let i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0; return String(h); }
+function mostrarLock(){ const l=document.getElementById('lock-screen'); if(!l) return; l.style.display='flex'; const i=document.getElementById('lock-pin'); i.value=''; setTimeout(()=>i.focus(),120); }
+function verificarPin(){
+  const p=document.getElementById('lock-pin').value;
+  if (hashPin(p)===localStorage.getItem('metta_pin')){ document.getElementById('lock-screen').style.display='none'; document.getElementById('lock-error').textContent=''; }
+  else { document.getElementById('lock-error').textContent='PIN incorrecto'; document.getElementById('lock-pin').value=''; }
+}
+function renderSeguridad(){
+  const on=pinActivo();
+  const e=document.getElementById('seg-estado'); if(e) e.textContent = on ? '🔒 PIN activado — se pedirá al abrir METTA.' : 'PIN desactivado.';
+  const b=document.getElementById('seg-btn'); if(b) b.textContent = on ? 'Cambiar PIN' : 'Activar PIN';
+  const bo=document.getElementById('seg-btn-off'); if(bo) bo.style.display = on ? '' : 'none';
+}
+function configurarPin(){
+  const p=prompt('Crea un PIN de 4 a 6 dígitos:'); if(p===null) return;
+  if(!/^\d{4,6}$/.test(p)){ toast('El PIN debe tener 4 a 6 dígitos','#C44B2B'); return; }
+  if(prompt('Confirma el PIN:')!==p){ toast('Los PIN no coinciden','#C44B2B'); return; }
+  localStorage.setItem('metta_pin', hashPin(p)); renderSeguridad(); toast('PIN activado ✓','#1D9E75');
+}
+function quitarPin(){ if(!confirm('¿Quitar el bloqueo con PIN?')) return; localStorage.removeItem('metta_pin'); renderSeguridad(); toast('PIN quitado','#1D9E75'); }
+
+// ── MIS DATOS: exportar / borrar ──
+async function exportarDatos(){
+  let rows=[];
+  try { const { data } = await sbClient.from('transacciones').select('fecha,tipo,categoria,descripcion,monto,quien').order('fecha',{ascending:false}); rows=data||[]; }
+  catch(e){ toast('Error al exportar','#C44B2B'); return; }
+  const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const csv='Fecha,Tipo,Categoria,Descripcion,Monto,Quien\n'+rows.map(r=>[r.fecha,r.tipo,r.categoria,r.descripcion,r.monto,r.quien].map(esc).join(',')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='metta_movimientos.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('Datos exportados ✓','#1D9E75');
+}
+async function borrarMisDatos(){
+  if(!confirm('Esto borrará TODOS los movimientos, patrimonio y tarjetas de tu hogar. No se puede deshacer. ¿Continuar?')) return;
+  if(prompt('Escribe BORRAR para confirmar:')!=='BORRAR') return;
+  try {
+    for (const t of ['pagos_tc','compras_tc','tarjetas','pasivos','activos','transacciones','pendientes']) await sbClient.from(t).delete().neq('id','');
+    ['poritos_tx','poritos_patrimonio','poritos_tarjetas'].forEach(k=>localStorage.removeItem(k));
+    toast('Datos borrados','#1D9E75'); setTimeout(()=>location.reload(),900);
+  } catch(e){ toast('Error: '+(e.message||e),'#C44B2B'); }
+}
+
+// ── RECORDATORIOS: próximos pagos ──
+function renderRecordatorios(){
+  const card=document.getElementById('recordatorios-card'), cont=document.getElementById('recordatorios-list');
+  if(!cont) return;
+  const tarjetas=(tarjetasData.tarjetas)||[];
+  const hoy=new Date(); const base=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate());
+  const items=[];
+  tarjetas.forEach(t=>{
+    const dia=Number(t.fecha_pago)||0; if(!dia) return;
+    let d=new Date(hoy.getFullYear(),hoy.getMonth(),dia);
+    if(d<base) d=new Date(hoy.getFullYear(),hoy.getMonth()+1,dia);
+    const dias=Math.round((d-base)/86400000);
+    items.push({nombre:'Pago '+(t.nombre||'tarjeta'), dias, fecha:d});
+  });
+  items.sort((a,b)=>a.dias-b.dias);
+  if(!items.length){ card.style.display='none'; return; }
+  card.style.display='';
+  cont.innerHTML=items.slice(0,6).map(i=>{
+    const urg=i.dias<=3, txt= i.dias===0?'hoy':(i.dias===1?'mañana':'en '+i.dias+' días');
+    return `<div class="rec-item"><div style="font-size:14px;color:var(--text);">${i.nombre}</div><div style="font-size:13px;font-weight:600;color:${urg?'#E24B4A':'var(--text2)'};">${txt} · ${i.fecha.getDate()} ${MESES_CORTOS[i.fecha.getMonth()+1]}</div></div>`;
+  }).join('');
+}
+
+// ── PATRIMONIO en el tiempo ──
+async function guardarSnapshotPatrimonio(){
+  if(!SCRIPT_URL) return;
+  const act=(patrimonioData.activos||[]).reduce((s,a)=>s+(Number(a.valor_mercado)||0),0);
+  const pas=(patrimonioData.pasivos||[]).reduce((s,p)=>s+(Number(p.saldo_pendiente)||0),0);
+  const mes=`${new Date().getFullYear()}-${pad(new Date().getMonth()+1)}`;
+  try { await sbClient.from('patrimonio_historico').upsert([{mes, neto:act-pas, activos:act, pasivos:pas, updated:new Date().toISOString()}], {onConflict:'hogar_id,mes'}); } catch(e){}
+}
+async function renderPatrimonioHistorico(){
+  const card=document.getElementById('pat-hist-card'); if(!card) return;
+  let rows=[];
+  try { const { data } = await sbClient.from('patrimonio_historico').select('mes,neto').order('mes',{ascending:true}); rows=data||[]; } catch(e){}
+  rows=rows.slice(-12);
+  if(rows.length<2){ card.style.display='none'; return; }
+  card.style.display='';
+  const max=Math.max(...rows.map(r=>Number(r.neto)),1);
+  document.getElementById('pat-hist-chart').innerHTML=rows.map(r=>`<div title="${r.mes}: $${fmt(r.neto)}" style="flex:1;background:linear-gradient(180deg,#1D9E75,#0F6E56);border-radius:4px 4px 0 0;height:${Math.max(3,Math.round(100*Number(r.neto)/max))}%;min-height:3px;"></div>`).join('');
+  document.getElementById('pat-hist-labels').innerHTML=rows.map(r=>`<div style="flex:1;text-align:center;font-size:10px;color:var(--text3);">${r.mes.substring(5)}</div>`).join('');
+}
 
 window.addEventListener('load', () => {
   try { maybeShowIosInstall(); } catch(e) {}
@@ -3125,6 +3248,7 @@ function renderDashboard() {
 
   renderDashRecent();
   renderPresupuestos();
+  renderRecordatorios();
 
   fillDeudaSelect();
   fillInversionSelect();
