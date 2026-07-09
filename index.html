@@ -264,6 +264,23 @@ html { overflow-x: hidden; }
 .pago-pagado .pat-detail { opacity: 0.55; }
 .pago-pagado .pat-amount { opacity: 0.55; }
 
+/* ── Selector de gasto existente (picker custom, reemplaza <select> nativo) ── */
+.tx-pick-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.tx-pick-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+.tx-pick-item:last-child { border-bottom: none; }
+.tx-pick-item:hover { background: var(--surface2); }
+.tx-pick-item.selected { background: var(--gold-light); }
+.tx-pick-main { flex: 1; min-width: 0; }
+.tx-pick-row1 { display: flex; align-items: baseline; gap: 8px; }
+.tx-pick-monto { font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--navy); flex-shrink: 0; }
+.tx-pick-desc { font-size: 12.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-pick-meta { font-size: 11px; color: var(--text3); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+.tx-pick-star { color: var(--gold-dark); font-weight: 600; background: var(--gold-light); padding: 1px 7px; border-radius: 20px; }
+.tx-pick-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; position: relative; transition: border-color 0.15s; }
+.tx-pick-item.selected .tx-pick-radio { border-color: var(--gold); }
+.tx-pick-item.selected .tx-pick-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--gold); }
+.tx-pick-empty { padding: 18px; text-align: center; font-size: 12.5px; color: var(--text3); }
+
 .deuda-progress { margin-top: 8px; }
 .deuda-track { height: 4px; background: var(--surface2); border-radius: 20px; overflow: hidden; }
 .deuda-fill { height: 100%; border-radius: 20px; }
@@ -955,7 +972,8 @@ html { overflow-x: hidden; }
     <div id="pago-ya-pagada-fecha-wrap" style="display:none;margin-top:8px">
       <div class="field" style="margin-bottom:10px">
         <label>Vincular con un gasto ya registrado en tu Historial (opcional)</label>
-        <select id="pago-tx-existente" onchange="onPagoTxExistenteChange()"></select>
+        <div id="pago-tx-existente-list" class="tx-pick-list"></div>
+        <input type="hidden" id="pago-tx-existente" value="">
       </div>
       <div class="field">
         <label>Fecha en que la pagaste</label>
@@ -4633,31 +4651,46 @@ function onPagoYaPagadaChange() {
   }
 }
 
-// Lista los gastos del mes en curso (cachedTx) para vincularlos a esta cuenta sin duplicar el gasto.
-// Los de la misma categoría del pago aparecen primero.
+// Lista los gastos del mes en curso (cachedTx) como tarjetas seleccionables (no <select> nativo)
+// para vincularlos a esta cuenta sin duplicar el gasto. Los de la misma categoría aparecen primero.
 function poblarPagoTxExistente() {
-  const sel = document.getElementById('pago-tx-existente');
-  if (!sel) return;
+  const cont = document.getElementById('pago-tx-existente-list');
+  if (!cont) return;
   const categoria = document.getElementById('pago-categoria').value || '';
   const rows = [...(cachedTx||[])].filter(t => t.Tipo === 'gasto').sort((a,b) => {
     const ma = a.Categoria===categoria ? 0 : 1, mb = b.Categoria===categoria ? 0 : 1;
     if (ma !== mb) return ma - mb;
     return (b.Fecha||'').localeCompare(a.Fecha||'');
   });
-  const opts = rows.map(t =>
-    `<option value="${t.Fecha}|${Number(t.Monto)||0}">${t.Categoria===categoria?'★ ':''}$${fmt(t.Monto)} · ${t.Descripcion||t.Categoria} · ${fechaCorta(t.Fecha)}</option>`
-  ).join('');
-  sel.innerHTML = `<option value="">— Elige un gasto o ingresa la fecha manualmente abajo —</option>` + opts;
+  const manualItem = `<div class="tx-pick-item selected" data-fecha="" data-monto="" onclick="seleccionarPagoTx(this)">
+    <div class="tx-pick-main"><div class="tx-pick-desc" style="color:var(--text3)">Ingresar fecha manualmente abajo</div></div>
+    <div class="tx-pick-radio"></div>
+  </div>`;
+  const opts = rows.map(t => {
+    const match = t.Categoria === categoria;
+    return `<div class="tx-pick-item" data-fecha="${t.Fecha}" data-monto="${Number(t.Monto)||0}" onclick="seleccionarPagoTx(this)">
+      <div class="tx-pick-main">
+        <div class="tx-pick-row1"><span class="tx-pick-monto">$${fmt(t.Monto)}</span><span class="tx-pick-desc">${t.Descripcion||t.Categoria}</span></div>
+        <div class="tx-pick-meta"><span>${fechaCorta(t.Fecha)}</span>${match?'<span class="tx-pick-star">★ misma categoría</span>':''}</div>
+      </div>
+      <div class="tx-pick-radio"></div>
+    </div>`;
+  }).join('');
+  cont.innerHTML = manualItem + (opts || '<div class="tx-pick-empty">No hay gastos registrados este mes todavía</div>');
 }
 
-// Al elegir un gasto del Historial, copia su fecha y monto real a la cuenta
-function onPagoTxExistenteChange() {
-  const sel = document.getElementById('pago-tx-existente');
-  if (!sel || !sel.value) return;
-  const [fecha, monto] = sel.value.split('|');
-  document.getElementById('pago-fecha-ya-pagada').value = fecha;
-  document.getElementById('pago-monto').value = monto;
-  toast('Monto y fecha completados desde el gasto elegido', '#1D9E75');
+// Al elegir un gasto del Historial (tarjeta seleccionable), copia su fecha y monto real a la cuenta
+function seleccionarPagoTx(el) {
+  const cont = document.getElementById('pago-tx-existente-list');
+  cont.querySelectorAll('.tx-pick-item').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+  const fecha = el.dataset.fecha || '', monto = el.dataset.monto || '';
+  document.getElementById('pago-tx-existente').value = fecha ? (fecha+'|'+monto) : '';
+  if (fecha) {
+    document.getElementById('pago-fecha-ya-pagada').value = fecha;
+    document.getElementById('pago-monto').value = monto;
+    toast('Monto y fecha completados desde el gasto elegido', '#1D9E75');
+  }
 }
 
 function clearPagoModal() {
@@ -4667,7 +4700,8 @@ function clearPagoModal() {
   document.getElementById('pago-pausado').checked = false;
   document.getElementById('pago-ya-pagada').checked = false;
   document.getElementById('pago-ya-pagada-fecha-wrap').style.display = 'none';
-  document.getElementById('pago-tx-existente').innerHTML = '';
+  document.getElementById('pago-tx-existente').value = '';
+  document.getElementById('pago-tx-existente-list').innerHTML = '';
   poblarPagoCategorias();
   poblarSelectsQuien();
   onPagoTipoChange();
