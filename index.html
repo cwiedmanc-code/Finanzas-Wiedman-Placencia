@@ -257,6 +257,13 @@ html { overflow-x: hidden; }
 .pat-edit { background: none; border: none; cursor: pointer; color: var(--text3); padding: 4px; border-radius: 4px; font-size: 13px; margin-left: 8px; align-self: center; }
 .pat-edit:hover { background: var(--gold-light); color: var(--gold-dark); }
 
+.pago-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; padding: 0; margin-right: 2px; transition: all 0.15s; }
+.pago-check:hover { border-color: #1A7A4A; }
+.pago-check.checked { background: #1A7A4A; border-color: #1A7A4A; }
+.pago-pagado .pat-name { text-decoration: line-through; opacity: 0.55; }
+.pago-pagado .pat-detail { opacity: 0.55; }
+.pago-pagado .pat-amount { opacity: 0.55; }
+
 .deuda-progress { margin-top: 8px; }
 .deuda-track { height: 4px; background: var(--surface2); border-radius: 20px; overflow: hidden; }
 .deuda-fill { height: 100%; border-radius: 20px; }
@@ -903,6 +910,55 @@ html { overflow-x: hidden; }
   </div>
 </div>
 
+<!-- ── Modal Pago Programado (recurrente / único / esporádico) ── -->
+<div class="modal-overlay hidden" id="modal-pago">
+  <div class="modal">
+    <div class="modal-title" id="modal-pago-title">Nuevo pago programado</div>
+    <input type="hidden" id="pago-edit-id">
+    <div class="form-row form-row-2">
+      <div class="field"><label>Nombre</label><input type="text" id="pago-nombre" placeholder="Arriendo, Luz, Colegio, Seguro auto..."></div>
+      <div class="field"><label>Tipo</label>
+        <select id="pago-tipo" onchange="onPagoTipoChange()">
+          <option value="fijo">Recurrente — monto fijo</option>
+          <option value="variable">Recurrente — monto variable</option>
+          <option value="unico">Único — con fecha</option>
+          <option value="esporadico">Esporádico — sin fecha fija</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>Categoría</label><select id="pago-categoria"></select></div>
+      <div class="field"><label id="pago-monto-label">Monto estimado (CLP)</label><input type="text" id="pago-monto" placeholder="50000" inputmode="numeric"></div>
+    </div>
+    <div id="pago-extra-recurrente" class="form-row form-row-2">
+      <div class="field"><label>Día de pago (1-28)</label><input type="number" id="pago-dia" placeholder="5" min="1" max="28"></div>
+      <div class="field"><label>Frecuencia</label>
+        <select id="pago-frecuencia">
+          <option value="1">Mensual</option>
+          <option value="2">Bimestral</option>
+          <option value="3">Trimestral</option>
+          <option value="6">Semestral</option>
+          <option value="12">Anual</option>
+        </select>
+      </div>
+    </div>
+    <div id="pago-extra-fecha" class="form-row form-row-2" style="display:none">
+      <div class="field"><label id="pago-fecha-label">Fecha de vencimiento (opcional)</label><input type="date" id="pago-fecha"></div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="field"><label>¿De quién?</label><select id="pago-quien"></select></div>
+      <div class="field"><label>Notas (opcional)</label><input type="text" id="pago-notas" placeholder="N° de cliente, alias, etc."></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-top:4px;cursor:pointer">
+      <input type="checkbox" id="pago-pausado" style="width:16px;height:16px;margin:0;"> ⏸ Pausado (no se muestra en la lista ni avisa)
+    </label>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-pago')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePago()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
@@ -928,6 +984,8 @@ html { overflow-x: hidden; }
     <div class="nav-section">Patrimonio</div>
     <div class="nav-item" onclick="showPage('patrimonio',this)"><span class="icon">◆</span> Patrimonio neto</div>
     <div class="nav-item" onclick="showPage('tarjetas',this)"><span class="icon">▣</span> Tarjetas TC</div>
+    <div class="nav-section">Pagos</div>
+    <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">🔔</span> Mis Cuentas</div>
     <div class="nav-section">Configuración</div>
     <div class="nav-item" onclick="showPage('config',this)"><span class="icon">⚙</span> Configurar</div>
     <div class="nav-item" id="nav-admin" onclick="showPage('admin',this)" style="display:none"><span class="icon">📊</span> Admin</div>
@@ -1302,6 +1360,31 @@ html { overflow-x: hidden; }
       </div>
     </div>
 
+    <!-- ══════════ PAGOS PROGRAMADOS ══════════ -->
+    <div class="page" id="page-pagos">
+      <div class="page-header">
+        <div class="page-title">Mis Cuentas</div>
+        <button class="btn btn-outline btn-sm" onclick="openModalPago()">+ Nuevo pago</button>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin:-8px 0 18px;line-height:1.6">
+        Cada uno agrega aquí sus cuentas — arriendo, servicios, seguros, colegio, suscripciones, la patente, etc. Al pagarlas, márcalas ✓ y quedan tachadas de la lista del mes; el próximo mes vuelven a aparecer sin marcar.
+      </p>
+
+      <div class="card" id="pagos-mes-card" style="display:none">
+        <div class="card-title">📋 Este mes</div>
+        <div id="pagos-mes-list"></div>
+      </div>
+      <div class="card" id="pagos-eventuales-card" style="display:none">
+        <div class="card-title">⚪ Eventuales / sin fecha fija</div>
+        <div id="pagos-eventuales-list"></div>
+      </div>
+      <div class="card" id="pagos-pausados-card" style="display:none">
+        <div class="card-title">⏸ Pausados</div>
+        <div id="pagos-pausados-list"></div>
+      </div>
+      <div class="empty" id="pagos-empty"><div class="e-icon">📋</div>Aún no tienes pagos programados. Agrega el primero con "+ Nuevo pago".</div>
+    </div>
+
     <!-- ══════════ CONFIG ══════════ -->
     <div class="page" id="page-config">
       <div class="page-header"><div class="page-title">Configuración</div></div>
@@ -1319,6 +1402,12 @@ html { overflow-x: hidden; }
         </div>
         <button class="btn btn-primary" onclick="saveEspacioNombre()">Guardar nombre</button>
         <div id="cfg-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔔 Avisos de pago</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Activa las notificaciones para que METTA te avise cuando abras la app y tengas pagos atrasados o por vencer en los próximos 3 días.</p>
+        <button class="btn btn-primary" onclick="solicitarPermisoAvisos()">Activar avisos</button>
+        <div id="cfg-avisos-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
       </div>
       <div class="card">
         <div class="card-title">Integrantes de tu familia</div>
@@ -1562,6 +1651,7 @@ let patrimonioData = JSON.parse(localStorage.getItem('poritos_patrimonio') || JS
   pasivos: []
 }));
 let tarjetasData = JSON.parse(localStorage.getItem('poritos_tarjetas') || JSON.stringify({ tarjetas: [], compras: [], pagosTC: [] }));
+let pagosProgramadosData = JSON.parse(localStorage.getItem('poritos_pagos_programados') || JSON.stringify({ pagos: [] }));
 let tcTabActual = 'todas';
 let tcColorSel = 0;
 
@@ -1857,6 +1947,18 @@ async function apiGet(params) {
       }));
       return { tarjetas, compras, pagosTC };
     }
+    if (action === 'getPagosProgramados') {
+      const { data, error } = await sbClient.from('pagos_programados').select('*');
+      if (error) throw error;
+      const pagos = (data||[]).map(r => ({
+        id:r.id, nombre:r.nombre||'', tipo:r.tipo||'fijo', categoria:r.categoria||'',
+        monto_estimado:_num(r.monto_estimado), dia_pago:r.dia_pago||null,
+        frecuencia_meses:_num(r.frecuencia_meses)||1, fecha_vencimiento:r.fecha_vencimiento||'',
+        ultima_fecha_pagada:r.ultima_fecha_pagada||'', activo: r.activo !== false,
+        quien:r.quien||'', notas:r.notas||'', updated:r.updated||''
+      }));
+      return { pagos };
+    }
     return { error: 'Accion desconocida: ' + action };
   } catch(e) {
     return { error: e.message || String(e) };
@@ -1951,6 +2053,21 @@ async function apiPost(body) {
       }
       return { ok:true };
     }
+    if (action === 'savePagosProgramados') {
+      const pagos = (body.data && body.data.pagos) || [];
+      await sbClient.from('pagos_programados').delete().neq('id', '');
+      if (pagos.length) {
+        const { error } = await sbClient.from('pagos_programados').insert(pagos.map(p => ({
+          id:p.id, user_id:uid, nombre:p.nombre||'', tipo:p.tipo||'fijo', categoria:p.categoria||'',
+          monto_estimado:Number(p.monto_estimado)||0, dia_pago:p.dia_pago||null,
+          frecuencia_meses:Number(p.frecuencia_meses)||1, fecha_vencimiento:p.fecha_vencimiento||null,
+          ultima_fecha_pagada:p.ultima_fecha_pagada||null, activo: p.activo !== false,
+          quien:p.quien||'', notas:p.notas||'', updated:p.updated||now
+        })));
+        if (error) throw error;
+      }
+      return { ok:true };
+    }
     return { error: 'Accion desconocida: ' + action };
   } catch(e) {
     return { error: e.message || String(e) };
@@ -1961,7 +2078,7 @@ async function apiPost(body) {
 // DATA LOADING
 // ══════════════════════════════════════════════
 async function loadAll() {
-  await Promise.all([loadTx(), loadMeta(), loadPatrimonio(), loadTarjetas()]);
+  await Promise.all([loadTx(), loadMeta(), loadPatrimonio(), loadTarjetas(), loadPagosProgramados()]);
   renderDashboard();
   renderHistorial();
   renderTodayList();
@@ -1969,6 +2086,9 @@ async function loadAll() {
   renderAutoTips();
   renderPatrimonio();
   renderTarjetas();
+  renderPagosProgramados();
+  revisarAvisosPagos();
+  renderAvisosStatus();
   applyEspacioNombre();
   poblarSelectsQuien();
   renderIntegrantes();
@@ -2025,7 +2145,7 @@ function getIntegrantes() {
 function poblarSelectsQuien() {
   const opts = getIntegrantes().concat(['Ambos']);
   const html = opts.map(m => `<option>${m}</option>`).join('');
-  ['etx-quien','tc-quien','tc-compra-quien','g-quien','i-quien','a-quien','ptc-quien','pend-quien'].forEach(id => {
+  ['etx-quien','tc-quien','tc-compra-quien','g-quien','i-quien','a-quien','ptc-quien','pend-quien','pago-quien'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const prev = sel.value;
@@ -2564,7 +2684,12 @@ function renderRecordatorios(){
     let d=new Date(hoy.getFullYear(),hoy.getMonth(),dia);
     if(d<base) d=new Date(hoy.getFullYear(),hoy.getMonth()+1,dia);
     const dias=Math.round((d-base)/86400000);
-    items.push({nombre:'Pago '+(t.nombre||'tarjeta'), dias, fecha:d});
+    items.push({nombre:'Pago '+(t.nombre||'tarjeta'), dias, fecha:d, ico:'💳'});
+  });
+  (pagosProgramadosData.pagos||[]).forEach(p=>{
+    const info = calcEstadoPago(p);
+    if (info.estado==='eventual' || info.estado==='pausado' || !info.fecha || calcPagadoEstePeriodo(p)) return;
+    items.push({ nombre:p.nombre, dias:info.dias, fecha:info.fecha, ico: PAGO_TIPO_ICONS[p.tipo] || '📋' });
   });
   items.sort((a,b)=>a.dias-b.dias);
   if(!items.length){ card.style.display='none'; return; }
@@ -2573,9 +2698,9 @@ function renderRecordatorios(){
     const urg=i.dias<=3, soon=!urg&&i.dias<=7;
     const emoji=urg?'🔴':(soon?'🟡':'🟢');
     const pillStyle=urg?'background:rgba(226,75,74,0.15);color:#E24B4A;':(soon?'background:rgba(196,159,83,0.2);color:#9a7b30;':'background:rgba(24,95,165,0.12);color:#185FA5;');
-    const txt=i.dias===0?'¡Hoy!':(i.dias===1?'Mañana':'En '+i.dias+' días');
+    const txt=i.dias<0?'Atrasado':(i.dias===0?'¡Hoy!':(i.dias===1?'Mañana':'En '+i.dias+' días'));
     return `<div class="rp-item" style="animation:fadeUp .4s ease ${idx*0.06}s both;">
-      <div class="rp-ico">💳</div>
+      <div class="rp-ico">${i.ico}</div>
       <div style="flex:1;min-width:0;"><div class="rp-name">${i.nombre}</div><div class="rp-sub">${emoji} Vence el ${i.fecha.getDate()} ${MESES_CORTOS[i.fecha.getMonth()+1]}</div></div>
       <span class="rp-pill ${urg?'rp-urgent':''}" style="${pillStyle}">${txt}</span>
     </div>`;
@@ -2654,6 +2779,20 @@ async function loadPatrimonio() {
   patrimonioData = JSON.parse(localStorage.getItem('poritos_patrimonio') || JSON.stringify({activos:[],pasivos:[]}));
 }
 
+async function loadPagosProgramados() {
+  try {
+    if (SCRIPT_URL) {
+      const d = await apiGet({action:'getPagosProgramados'});
+      if (d && d.pagos) {
+        pagosProgramadosData = d;
+        localStorage.setItem('poritos_pagos_programados', JSON.stringify(d));
+        return;
+      }
+    }
+  } catch(e) {}
+  pagosProgramadosData = JSON.parse(localStorage.getItem('poritos_pagos_programados') || JSON.stringify({pagos:[]}));
+}
+
 // ══════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════
@@ -2671,6 +2810,7 @@ function showPage(id, el) {
   if(id==='meta') renderMetaPage();
   if(id==='patrimonio') renderPatrimonio();
   if(id==='tarjetas') renderTarjetas();
+  if(id==='pagos') renderPagosProgramados();
   if(id==='admin') loadAdminStats();
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -4373,6 +4513,358 @@ function pagarMesTC(tarjetaId) {
   saveTarjetasLocal();
   renderDashboard(); renderTodayList(); renderTarjetas();
   toast(`Mes pagado · $${fmt(total)}`, '#1D9E75');
+}
+
+// ══════════════════════════════════════════════
+// PAGOS PROGRAMADOS (recurrentes fijos/variables, únicos, esporádicos)
+// ══════════════════════════════════════════════
+const PAGO_CATEGORIAS = ['Vivienda','Servicios básicos','Transporte','Salud','Educación','Entretenimiento','Deudas','Familia','Otros'];
+const PAGO_TIPO_ICONS = { fijo:'📌', variable:'🔁', unico:'📅', esporadico:'🔸' };
+
+function poblarPagoCategorias() {
+  const sel = document.getElementById('pago-categoria');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = PAGO_CATEGORIAS.map(c => `<option>${c}</option>`).join('');
+  if (PAGO_CATEGORIAS.includes(prev)) sel.value = prev;
+}
+
+function onPagoTipoChange() {
+  const tipo = document.getElementById('pago-tipo').value;
+  const esRecurrente = (tipo === 'fijo' || tipo === 'variable');
+  document.getElementById('pago-extra-recurrente').style.display = esRecurrente ? '' : 'none';
+  document.getElementById('pago-extra-fecha').style.display = esRecurrente ? 'none' : '';
+  document.getElementById('pago-monto-label').textContent = (tipo === 'fijo') ? 'Monto (CLP)' : 'Monto estimado (CLP)';
+  document.getElementById('pago-fecha-label').textContent = tipo === 'unico' ? 'Fecha de vencimiento' : 'Fecha de vencimiento (opcional)';
+}
+
+function clearPagoModal() {
+  ['pago-nombre','pago-monto','pago-dia','pago-fecha','pago-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('pago-tipo').value = 'fijo';
+  document.getElementById('pago-frecuencia').value = '1';
+  document.getElementById('pago-pausado').checked = false;
+  poblarPagoCategorias();
+  poblarSelectsQuien();
+  onPagoTipoChange();
+}
+
+function openModalPago(editId) {
+  clearPagoModal();
+  if (editId) {
+    const p = (pagosProgramadosData.pagos || []).find(x => x.id === editId);
+    if (p) {
+      document.getElementById('pago-edit-id').value = p.id;
+      document.getElementById('modal-pago-title').textContent = 'Editar pago programado';
+      document.getElementById('pago-nombre').value = p.nombre || '';
+      document.getElementById('pago-tipo').value = p.tipo || 'fijo';
+      poblarPagoCategorias();
+      document.getElementById('pago-categoria').value = p.categoria || 'Otros';
+      document.getElementById('pago-monto').value = p.monto_estimado || '';
+      document.getElementById('pago-dia').value = p.dia_pago || '';
+      document.getElementById('pago-frecuencia').value = String(p.frecuencia_meses || 1);
+      document.getElementById('pago-fecha').value = p.fecha_vencimiento || '';
+      poblarSelectsQuien();
+      if (p.quien) document.getElementById('pago-quien').value = p.quien;
+      document.getElementById('pago-notas').value = p.notas || '';
+      document.getElementById('pago-pausado').checked = (p.activo === false);
+      onPagoTipoChange();
+    }
+  } else {
+    document.getElementById('modal-pago-title').textContent = 'Nuevo pago programado';
+    document.getElementById('pago-edit-id').value = '';
+  }
+  document.getElementById('modal-pago').classList.remove('hidden');
+}
+
+function savePago() {
+  const nombre = document.getElementById('pago-nombre').value.trim();
+  const tipo = document.getElementById('pago-tipo').value;
+  const monto = parseMonto(document.getElementById('pago-monto').value) || 0;
+  if (!nombre) { toast('Ponle un nombre al pago', '#C44B2B'); return; }
+  const esRecurrente = (tipo === 'fijo' || tipo === 'variable');
+  if (esRecurrente && !document.getElementById('pago-dia').value) { toast('Indica el día de pago', '#C44B2B'); return; }
+  if (tipo === 'unico' && !document.getElementById('pago-fecha').value) { toast('Indica la fecha de vencimiento', '#C44B2B'); return; }
+  const editId = document.getElementById('pago-edit-id').value;
+  const existente = editId ? (pagosProgramadosData.pagos || []).find(x => x.id === editId) : null;
+  const pago = {
+    id: editId || 'PP' + Date.now(),
+    nombre,
+    tipo,
+    categoria: document.getElementById('pago-categoria').value || 'Otros',
+    monto_estimado: monto,
+    dia_pago: esRecurrente ? (parseInt(document.getElementById('pago-dia').value) || 1) : null,
+    frecuencia_meses: esRecurrente ? (parseInt(document.getElementById('pago-frecuencia').value) || 1) : 1,
+    fecha_vencimiento: !esRecurrente ? (document.getElementById('pago-fecha').value || '') : '',
+    ultima_fecha_pagada: existente ? (existente.ultima_fecha_pagada || '') : '',
+    activo: !document.getElementById('pago-pausado').checked,
+    quien: document.getElementById('pago-quien').value || '',
+    notas: document.getElementById('pago-notas').value.trim(),
+    updated: new Date().toISOString()
+  };
+  if (!pagosProgramadosData.pagos) pagosProgramadosData.pagos = [];
+  if (editId) {
+    const idx = pagosProgramadosData.pagos.findIndex(p => p.id === editId);
+    if (idx >= 0) pagosProgramadosData.pagos[idx] = pago; else pagosProgramadosData.pagos.push(pago);
+  } else {
+    pagosProgramadosData.pagos.push(pago);
+  }
+  savePagosProgramadosLocal();
+  closeModal('modal-pago');
+  renderPagosProgramados();
+  renderDashboard();
+  toast('Pago guardado ✓', '#1D9E75');
+}
+
+function savePagosProgramadosLocal() {
+  localStorage.setItem('poritos_pagos_programados', JSON.stringify(pagosProgramadosData));
+  if (SCRIPT_URL) { apiPost({ action:'savePagosProgramados', data: pagosProgramadosData }); }
+}
+
+function deletePago(id) {
+  if (!confirm('¿Eliminar este pago programado?')) return;
+  pagosProgramadosData.pagos = (pagosProgramadosData.pagos || []).filter(p => p.id !== id);
+  savePagosProgramadosLocal();
+  renderPagosProgramados();
+  renderDashboard();
+  toast('Eliminado', '#888');
+}
+
+function pausarPago(id) {
+  const p = (pagosProgramadosData.pagos || []).find(x => x.id === id);
+  if (!p) return;
+  p.activo = !(p.activo !== false);
+  savePagosProgramadosLocal();
+  renderPagosProgramados();
+  renderDashboard();
+  toast(p.activo ? 'Pago reactivado' : 'Pago pausado', p.activo ? '#1D9E75' : '#888');
+}
+
+// ── Cálculo de próxima fecha / estado ──
+function _parseYMD(s) {
+  if (!s) return null;
+  const p = String(s).split('-').map(Number);
+  if (p.length < 3 || !p[0]) return null;
+  return new Date(p[0], p[1]-1, p[2]);
+}
+function calcProximaFechaPago(p) {
+  const dia = Math.min(Math.max(parseInt(p.dia_pago)||1, 1), 28);
+  const freq = Math.max(parseInt(p.frecuencia_meses)||1, 1);
+  const u = _parseYMD(p.ultima_fecha_pagada);
+  if (u) return new Date(u.getFullYear(), u.getMonth() + freq, dia);
+  const hoy = new Date();
+  return new Date(hoy.getFullYear(), hoy.getMonth(), dia);
+}
+function calcEstadoPago(p) {
+  if (p.activo === false) return { estado:'pausado', dias:null, fecha:null };
+  const hoy = new Date(); const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  let fecha = null;
+  if (p.tipo === 'fijo' || p.tipo === 'variable') {
+    fecha = calcProximaFechaPago(p);
+  } else if (p.fecha_vencimiento) {
+    fecha = _parseYMD(p.fecha_vencimiento);
+  }
+  if (!fecha) return { estado:'eventual', dias:null, fecha:null };
+  const dias = Math.round((fecha - base) / 86400000);
+  const estado = dias < 0 ? 'atrasado' : (dias <= 7 ? 'proximo' : 'al_dia');
+  return { estado, dias, fecha };
+}
+
+function marcarPagoPagado(id) {
+  const p = (pagosProgramadosData.pagos || []).find(x => x.id === id);
+  if (!p) return;
+  const sugerido = p.monto_estimado || 0;
+  const input = prompt(`Monto pagado de "${p.nombre}" (CLP):`, sugerido || '');
+  if (input === null) return;
+  const monto = parseMonto(input) || 0;
+  if (!monto) { toast('Ingresa un monto válido', '#C44B2B'); return; }
+  const h = new Date();
+  const hoyStr = h.getFullYear() + '-' + pad(h.getMonth()+1) + '-' + pad(h.getDate());
+  const quien = p.quien || getIntegrantes()[0];
+  const esRecurrente = (p.tipo === 'fijo' || p.tipo === 'variable');
+  const tx = { ID:'TX'+Date.now(), Fecha:hoyStr, Tipo:'gasto', Categoria:p.categoria||'Otros', Descripcion:p.nombre, Monto:monto, Quien:quien, Recurrente: esRecurrente ? 'Sí' : 'No' };
+  localTx.push(tx); localStorage.setItem('poritos_tx', JSON.stringify(localTx)); cachedTx.push(tx);
+  if (SCRIPT_URL) apiPost({action:'addTx', data:{fecha:hoyStr, tipo:'gasto', categoria:p.categoria||'Otros', descripcion:p.nombre, monto, quien, recurrente:esRecurrente}});
+  p.ultima_fecha_pagada = hoyStr;
+  savePagosProgramadosLocal();
+  renderPagosProgramados();
+  renderDashboard();
+  renderTodayList();
+  toast(`Pagado · $${fmt(monto)}`, '#1D9E75');
+}
+
+// Deshace el check (no borra el gasto ya registrado en el historial)
+function togglePagoPagado(id) {
+  const p = (pagosProgramadosData.pagos || []).find(x => x.id === id);
+  if (!p) return;
+  if (calcPagadoEstePeriodo(p)) {
+    if (!confirm(`¿Deshacer el pago de "${p.nombre}"?\nEsto no elimina el gasto ya registrado en tu Historial, solo lo vuelve a marcar como pendiente en esta lista.`)) return;
+    p.ultima_fecha_pagada = '';
+    savePagosProgramadosLocal();
+    renderPagosProgramados();
+    renderDashboard();
+    toast('Pago desmarcado', '#888');
+    return;
+  }
+  marcarPagoPagado(id);
+}
+
+// ¿Está cubierto el período actual? (freq=1 → mismo mes calendario que hoy)
+function calcPagadoEstePeriodo(p) {
+  if (!p.ultima_fecha_pagada) return false;
+  const u = _parseYMD(p.ultima_fecha_pagada);
+  if (!u) return false;
+  const freq = Math.max(parseInt(p.frecuencia_meses)||1, 1);
+  const hoy = new Date();
+  const meses = (hoy.getFullYear()-u.getFullYear())*12 + (hoy.getMonth()-u.getMonth());
+  return meses >= 0 && meses < freq;
+}
+
+// ¿Entra este pago a la lista principal "Este mes"? (fijo/variable siempre; único/esporádico solo si tienen fecha o están pendientes)
+function estaEnListaMensual(p) {
+  if (p.tipo === 'esporadico') return !!p.fecha_vencimiento;
+  if (p.tipo === 'unico') return !p.ultima_fecha_pagada || calcPagadoEstePeriodo(p);
+  return true;
+}
+
+// ── Render página "Mis Cuentas" ──
+function _pagoRowHTML(p) {
+  const pagado = calcPagadoEstePeriodo(p);
+  const info = calcEstadoPago(p);
+  const icon = PAGO_TIPO_ICONS[p.tipo] || '📋';
+  let sub;
+  if (pagado) sub = `✅ Pagado${info.fecha ? ' · próx. '+info.fecha.getDate()+' '+MESES_CORTOS[info.fecha.getMonth()+1] : ''}`;
+  else if (info.estado === 'atrasado') sub = `🔴 Venció ${info.fecha.getDate()} ${MESES_CORTOS[info.fecha.getMonth()+1]} · hace ${Math.abs(info.dias)} día${Math.abs(info.dias)!==1?'s':''}`;
+  else if (info.estado === 'proximo') sub = `🟡 ${info.dias===0?'Vence hoy':(info.dias===1?'Vence mañana':'Vence en '+info.dias+' días')} · ${info.fecha.getDate()} ${MESES_CORTOS[info.fecha.getMonth()+1]}`;
+  else if (info.estado === 'al_dia') sub = `🟢 Vence ${info.fecha.getDate()} ${MESES_CORTOS[info.fecha.getMonth()+1]}`;
+  else sub = 'Sin fecha fija';
+  const freqLabel = { 1:'Mensual',2:'Bimestral',3:'Trimestral',6:'Semestral',12:'Anual' }[p.frecuencia_meses] || '';
+  const tipoLabel = (p.tipo==='fijo'||p.tipo==='variable') ? freqLabel : (p.tipo==='unico'?'Único':'Esporádico');
+  const detail = [p.categoria, tipoLabel, p.quien].filter(Boolean).join(' · ');
+  return `<div class="patrimonio-item pago-row${pagado?' pago-pagado':''}">
+    <button class="pago-check${pagado?' checked':''}" onclick="togglePagoPagado('${p.id}')" title="${pagado?'Deshacer pago':'Marcar como pagado'}">${pagado?'✓':''}</button>
+    <div class="pat-icon" style="background:var(--surface2)">${icon}</div>
+    <div class="pat-info">
+      <div class="pat-name">${p.nombre}</div>
+      <div class="pat-detail">${detail}</div>
+      <div class="pat-detail">${sub}</div>
+    </div>
+    <div class="pat-value">
+      <div class="pat-amount" style="color:var(--accent)">$${fmt(p.monto_estimado||0)}</div>
+    </div>
+    <button class="pat-edit" onclick="openModalPago('${p.id}')" title="Editar">✎</button>
+    <button class="pat-del" onclick="deletePago('${p.id}')" title="Eliminar">×</button>
+  </div>`;
+}
+
+function _pagoRowPausadoHTML(p) {
+  const icon = PAGO_TIPO_ICONS[p.tipo] || '📋';
+  const freqLabel = { 1:'Mensual',2:'Bimestral',3:'Trimestral',6:'Semestral',12:'Anual' }[p.frecuencia_meses] || '';
+  const tipoLabel = (p.tipo==='fijo'||p.tipo==='variable') ? freqLabel : (p.tipo==='unico'?'Único':'Esporádico');
+  const detail = [p.categoria, tipoLabel, p.quien].filter(Boolean).join(' · ');
+  return `<div class="patrimonio-item" style="opacity:.6">
+    <div class="pat-icon" style="background:var(--surface2)">${icon}</div>
+    <div class="pat-info">
+      <div class="pat-name">${p.nombre}</div>
+      <div class="pat-detail">${detail}</div>
+    </div>
+    <div class="pat-value"><div class="pat-amount" style="color:var(--text3)">$${fmt(p.monto_estimado||0)}</div></div>
+    <button class="btn btn-outline" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="pausarPago('${p.id}')">▶ Reactivar</button>
+    <button class="pat-edit" onclick="openModalPago('${p.id}')" title="Editar">✎</button>
+    <button class="pat-del" onclick="deletePago('${p.id}')" title="Eliminar">×</button>
+  </div>`;
+}
+
+function renderPagosProgramados() {
+  // Housekeeping: esporádicos pagados hace más de su período vuelven a "eventual" (sin fecha)
+  let changed = false;
+  (pagosProgramadosData.pagos||[]).forEach(p => {
+    if (p.tipo === 'esporadico' && p.fecha_vencimiento && p.ultima_fecha_pagada && !calcPagadoEstePeriodo(p)) {
+      p.fecha_vencimiento = '';
+      changed = true;
+    }
+  });
+  if (changed) savePagosProgramadosLocal();
+
+  const pagos = pagosProgramadosData.pagos || [];
+  const principales = pagos.filter(p => p.activo !== false && estaEnListaMensual(p));
+  const eventuales  = pagos.filter(p => p.activo !== false && p.tipo === 'esporadico' && !estaEnListaMensual(p));
+  const pausados    = pagos.filter(p => p.activo === false);
+
+  principales.sort((a,b) => {
+    const pa = calcPagadoEstePeriodo(a) ? 1 : 0, pb = calcPagadoEstePeriodo(b) ? 1 : 0;
+    if (pa !== pb) return pa - pb;
+    const da = calcEstadoPago(a).dias, db = calcEstadoPago(b).dias;
+    return (da==null?9999:da) - (db==null?9999:db);
+  });
+
+  const mesCard = document.getElementById('pagos-mes-card'), mesList = document.getElementById('pagos-mes-list');
+  if (principales.length) { mesCard.style.display=''; mesList.innerHTML = principales.map(_pagoRowHTML).join(''); }
+  else if (mesCard) mesCard.style.display = 'none';
+
+  const evCard = document.getElementById('pagos-eventuales-card'), evList = document.getElementById('pagos-eventuales-list');
+  if (eventuales.length) { evCard.style.display=''; evList.innerHTML = eventuales.map(_pagoRowHTML).join(''); }
+  else if (evCard) evCard.style.display = 'none';
+
+  const pauCard = document.getElementById('pagos-pausados-card'), pauList = document.getElementById('pagos-pausados-list');
+  if (pausados.length) { pauCard.style.display=''; pauList.innerHTML = pausados.map(_pagoRowPausadoHTML).join(''); }
+  else if (pauCard) pauCard.style.display = 'none';
+
+  const empty = document.getElementById('pagos-empty');
+  if (empty) empty.style.display = pagos.length ? 'none' : '';
+}
+
+// ══════════════════════════════════════════════
+// AVISOS LOCALES (Notification API)
+// ══════════════════════════════════════════════
+function renderAvisosStatus() {
+  const el = document.getElementById('cfg-avisos-status');
+  if (!el) return;
+  if (!('Notification' in window)) { el.textContent = 'Tu navegador no soporta notificaciones.'; return; }
+  const map = { granted:'✓ Avisos activados', denied:'✕ Bloqueaste los avisos (actívalos en los ajustes del navegador)', default:'Aún no activados' };
+  el.textContent = map[Notification.permission] || '';
+}
+
+async function solicitarPermisoAvisos() {
+  if (!('Notification' in window)) { toast('Tu navegador no soporta notificaciones', '#C44B2B'); return; }
+  const perm = await Notification.requestPermission();
+  renderAvisosStatus();
+  if (perm === 'granted') { toast('Avisos activados ✓', '#1D9E75'); revisarAvisosPagos(true); }
+  else if (perm === 'denied') toast('Notificaciones bloqueadas por el navegador', '#C44B2B');
+}
+
+// Revisa atrasados/próximos y muestra UNA notificación por día (o al forzar tras activar permiso).
+function revisarAvisosPagos(forzar) {
+  renderAvisosStatus();
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const hoy = new Date();
+  const hoyStr = hoy.getFullYear() + '-' + pad(hoy.getMonth()+1) + '-' + pad(hoy.getDate());
+  if (!forzar && localStorage.getItem('avisos_pagos_fecha') === hoyStr) return; // ya avisó hoy
+
+  const tarjetas = (tarjetasData.tarjetas)||[];
+  const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  let atrasados = 0, proximos = 0;
+  tarjetas.forEach(t=>{
+    const dia = Number(t.fecha_pago)||0; if(!dia) return;
+    let d = new Date(hoy.getFullYear(), hoy.getMonth(), dia);
+    if (d < base) d = new Date(hoy.getFullYear(), hoy.getMonth()+1, dia);
+    const dias = Math.round((d-base)/86400000);
+    if (dias <= 3) proximos++;
+  });
+  (pagosProgramadosData.pagos||[]).forEach(p=>{
+    if (calcPagadoEstePeriodo(p)) return;
+    const info = calcEstadoPago(p);
+    if (info.estado === 'atrasado') atrasados++;
+    else if (info.estado === 'proximo' && (info.dias||0) <= 3) proximos++;
+  });
+
+  if (atrasados === 0 && proximos === 0) { if (forzar) toast('No tienes pagos atrasados ni próximos 🎉', '#1D9E75'); return; }
+  const partes = [];
+  if (atrasados) partes.push(`${atrasados} atrasado${atrasados!==1?'s':''}`);
+  if (proximos) partes.push(`${proximos} por vencer`);
+  try {
+    new Notification('METTA · Pagos pendientes', { body: partes.join(' · '), icon: 'icon-192.png' });
+    localStorage.setItem('avisos_pagos_fecha', hoyStr);
+  } catch(e) {}
 }
 
 </script>
