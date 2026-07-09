@@ -1535,6 +1535,16 @@ html { overflow-x: hidden; }
 </div>
 
 <!-- ── Modal Presupuestos ── -->
+<!-- ── Modal Detalle de Recordatorio (Dashboard "Próximos pagos") ── -->
+<div class="modal-overlay hidden" id="modal-rec-detalle">
+  <div class="modal" style="max-width:400px;">
+    <div class="card-title" id="rec-detalle-title" style="margin-bottom:10px;">Detalle</div>
+    <div id="rec-detalle-body" style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:16px;"></div>
+    <div id="rec-detalle-actions" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div onclick="closeModal('modal-rec-detalle')" style="text-align:center;margin-top:14px;font-size:13px;color:var(--text3);cursor:pointer;">Cerrar</div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="modal-presup">
   <div class="modal" style="max-width:440px;">
     <div class="card-title" style="margin-bottom:6px;">Presupuestos por categoría</div>
@@ -2701,12 +2711,12 @@ function renderRecordatorios(){
     let d=new Date(hoy.getFullYear(),hoy.getMonth(),dia);
     if(d<base) d=new Date(hoy.getFullYear(),hoy.getMonth()+1,dia);
     const dias=Math.round((d-base)/86400000);
-    items.push({nombre:'Pago '+(t.nombre||'tarjeta'), dias, fecha:d, ico:'💳'});
+    items.push({nombre:'Pago '+(t.nombre||'tarjeta'), dias, fecha:d, ico:'💳', tipo:'tc', refId:t.id});
   });
   (pagosProgramadosData.pagos||[]).forEach(p=>{
     const info = calcEstadoPago(p);
     if (info.estado==='eventual' || info.estado==='pausado' || !info.fecha || calcPagadoEstePeriodo(p)) return;
-    items.push({ nombre:p.nombre, dias:info.dias, fecha:info.fecha, ico: PAGO_TIPO_ICONS[p.tipo] || '📋' });
+    items.push({ nombre:p.nombre, dias:info.dias, fecha:info.fecha, ico: PAGO_TIPO_ICONS[p.tipo] || '📋', tipo:'pago', refId:p.id });
   });
   items.sort((a,b)=>a.dias-b.dias);
   if(!items.length){ card.style.display='none'; return; }
@@ -2716,7 +2726,7 @@ function renderRecordatorios(){
     const emoji=urg?'🔴':(soon?'🟡':'🟢');
     const pillStyle=urg?'background:rgba(226,75,74,0.15);color:#E24B4A;':(soon?'background:rgba(196,159,83,0.2);color:#9a7b30;':'background:rgba(24,95,165,0.12);color:#185FA5;');
     const txt=i.dias<0?'Atrasado':(i.dias===0?'¡Hoy!':(i.dias===1?'Mañana':'En '+i.dias+' días'));
-    return `<div class="rp-item" style="animation:fadeUp .4s ease ${idx*0.06}s both;">
+    return `<div class="rp-item" style="animation:fadeUp .4s ease ${idx*0.06}s both;cursor:pointer" onclick="abrirRecordatorioDetalle('${i.tipo}','${i.refId}')">
       <div class="rp-ico">${i.ico}</div>
       <div style="flex:1;min-width:0;"><div class="rp-name">${i.nombre}</div><div class="rp-sub">${emoji} Vence el ${i.fecha.getDate()} ${MESES_CORTOS[i.fecha.getMonth()+1]}</div></div>
       <span class="rp-pill ${urg?'rp-urgent':''}" style="${pillStyle}">${txt}</span>
@@ -4530,6 +4540,63 @@ function pagarMesTC(tarjetaId) {
   saveTarjetasLocal();
   renderDashboard(); renderTodayList(); renderTarjetas();
   toast(`Mes pagado · $${fmt(total)}`, '#1D9E75');
+}
+
+// ══════════════════════════════════════════════
+// POPUP DE DETALLE — "Próximos pagos" del Dashboard
+// ══════════════════════════════════════════════
+function abrirRecordatorioDetalle(tipo, id) {
+  const titleEl = document.getElementById('rec-detalle-title');
+  const bodyEl  = document.getElementById('rec-detalle-body');
+  const actEl   = document.getElementById('rec-detalle-actions');
+  if (!titleEl || !bodyEl || !actEl) return;
+
+  if (tipo === 'pago') {
+    const p = (pagosProgramadosData.pagos || []).find(x => x.id === id);
+    if (!p) return;
+    const info = calcEstadoPago(p);
+    const pagado = calcPagadoEstePeriodo(p);
+    const freqLabel = { 1:'Mensual',2:'Bimestral',3:'Trimestral',6:'Semestral',12:'Anual' }[p.frecuencia_meses] || '';
+    const tipoLabel = (p.tipo==='fijo'||p.tipo==='variable') ? freqLabel : (p.tipo==='unico'?'Único':'Esporádico');
+    let estadoTxt;
+    if (pagado) estadoTxt = '✅ Pagado este período';
+    else if (info.estado === 'atrasado') estadoTxt = `🔴 Atrasado — venció el ${info.fecha.getDate()} ${MESES_CORTOS[info.fecha.getMonth()+1]}`;
+    else if (info.estado === 'proximo') estadoTxt = `🟡 Vence el ${info.fecha.getDate()} ${MESES_CORTOS[info.fecha.getMonth()+1]}`;
+    else if (info.estado === 'al_dia') estadoTxt = `🟢 Vence el ${info.fecha.getDate()} ${MESES_CORTOS[info.fecha.getMonth()+1]}`;
+    else estadoTxt = 'Sin fecha fija';
+
+    titleEl.textContent = (PAGO_TIPO_ICONS[p.tipo] || '📋') + ' ' + p.nombre;
+    bodyEl.innerHTML = `
+      <div><strong>Categoría:</strong> ${p.categoria||'—'} · ${tipoLabel}</div>
+      <div><strong>Monto estimado:</strong> $${fmt(p.monto_estimado||0)}</div>
+      ${p.quien ? `<div><strong>¿De quién?</strong> ${p.quien}</div>` : ''}
+      <div style="margin-top:6px">${estadoTxt}</div>
+      ${p.notas ? `<div style="margin-top:6px;color:var(--text3)">${p.notas}</div>` : ''}
+    `;
+    actEl.innerHTML = (pagado
+      ? `<button class="btn btn-outline" onclick="closeModal('modal-rec-detalle');togglePagoPagado('${p.id}')">↺ Deshacer pago</button>`
+      : `<button class="btn btn-success" onclick="closeModal('modal-rec-detalle');marcarPagoPagado('${p.id}')">✓ Marcar como pagado</button>`
+    ) + `<button class="btn btn-outline" onclick="closeModal('modal-rec-detalle');openModalPago('${p.id}')">✎ Editar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-rec-detalle');showPage('pagos')">Ver todas en Mis Cuentas →</button>`;
+
+  } else if (tipo === 'tc') {
+    const t = (tarjetasData.tarjetas || []).find(x => x.id === id);
+    if (!t) return;
+    const cargo = calcCargoPendiente(t.id);
+    titleEl.textContent = '💳 ' + (t.nombre || 'Tarjeta');
+    bodyEl.innerHTML = `
+      <div><strong>Banco:</strong> ${t.banco||'—'}</div>
+      <div><strong>Cargo pendiente este mes:</strong> $${fmt(cargo)}</div>
+      <div><strong>Día de pago:</strong> ${t.fecha_pago||'—'}</div>
+    `;
+    actEl.innerHTML = (cargo > 0
+      ? `<button class="btn btn-success" onclick="closeModal('modal-rec-detalle');pagarMesTC('${t.id}')">💳 Pagar mes ($${fmt(cargo)})</button>`
+      : ''
+    ) + `<button class="btn btn-outline" onclick="closeModal('modal-rec-detalle');showPage('tarjetas')">Ver tarjeta →</button>`;
+  } else {
+    return;
+  }
+  document.getElementById('modal-rec-detalle').classList.remove('hidden');
 }
 
 // ══════════════════════════════════════════════
