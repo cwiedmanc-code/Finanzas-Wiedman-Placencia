@@ -950,6 +950,19 @@ html { overflow-x: hidden; }
       <div class="field"><label>Notas (opcional)</label><input type="text" id="pago-notas" placeholder="N° de cliente, alias, etc."></div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-top:4px;cursor:pointer">
+      <input type="checkbox" id="pago-ya-pagada" style="width:16px;height:16px;margin:0;" onchange="onPagoYaPagadaChange()"> ✅ Ya la pagué este período (no registra un gasto nuevo — úsalo si el gasto ya está en tu Historial)
+    </label>
+    <div id="pago-ya-pagada-fecha-wrap" style="display:none;margin-top:8px">
+      <div class="field" style="margin-bottom:10px">
+        <label>Vincular con un gasto ya registrado en tu Historial (opcional)</label>
+        <select id="pago-tx-existente" onchange="onPagoTxExistenteChange()"></select>
+      </div>
+      <div class="field">
+        <label>Fecha en que la pagaste</label>
+        <input type="date" id="pago-fecha-ya-pagada">
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-top:10px;cursor:pointer">
       <input type="checkbox" id="pago-pausado" style="width:16px;height:16px;margin:0;"> ⏸ Pausado (no se muestra en la lista ni avisa)
     </label>
     <div class="modal-footer">
@@ -4542,11 +4555,52 @@ function onPagoTipoChange() {
   document.getElementById('pago-fecha-label').textContent = tipo === 'unico' ? 'Fecha de vencimiento' : 'Fecha de vencimiento (opcional)';
 }
 
+function onPagoYaPagadaChange() {
+  const chk = document.getElementById('pago-ya-pagada').checked;
+  document.getElementById('pago-ya-pagada-fecha-wrap').style.display = chk ? '' : 'none';
+  if (chk) {
+    poblarPagoTxExistente();
+    if (!document.getElementById('pago-fecha-ya-pagada').value) {
+      document.getElementById('pago-fecha-ya-pagada').value = hoyStr();
+    }
+  }
+}
+
+// Lista los gastos del mes en curso (cachedTx) para vincularlos a esta cuenta sin duplicar el gasto.
+// Los de la misma categoría del pago aparecen primero.
+function poblarPagoTxExistente() {
+  const sel = document.getElementById('pago-tx-existente');
+  if (!sel) return;
+  const categoria = document.getElementById('pago-categoria').value || '';
+  const rows = [...(cachedTx||[])].filter(t => t.Tipo === 'gasto').sort((a,b) => {
+    const ma = a.Categoria===categoria ? 0 : 1, mb = b.Categoria===categoria ? 0 : 1;
+    if (ma !== mb) return ma - mb;
+    return (b.Fecha||'').localeCompare(a.Fecha||'');
+  });
+  const opts = rows.map(t =>
+    `<option value="${t.Fecha}|${Number(t.Monto)||0}">${t.Categoria===categoria?'★ ':''}$${fmt(t.Monto)} · ${t.Descripcion||t.Categoria} · ${fechaCorta(t.Fecha)}</option>`
+  ).join('');
+  sel.innerHTML = `<option value="">— Elige un gasto o ingresa la fecha manualmente abajo —</option>` + opts;
+}
+
+// Al elegir un gasto del Historial, copia su fecha y monto real a la cuenta
+function onPagoTxExistenteChange() {
+  const sel = document.getElementById('pago-tx-existente');
+  if (!sel || !sel.value) return;
+  const [fecha, monto] = sel.value.split('|');
+  document.getElementById('pago-fecha-ya-pagada').value = fecha;
+  document.getElementById('pago-monto').value = monto;
+  toast('Monto y fecha completados desde el gasto elegido', '#1D9E75');
+}
+
 function clearPagoModal() {
-  ['pago-nombre','pago-monto','pago-dia','pago-fecha','pago-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['pago-nombre','pago-monto','pago-dia','pago-fecha','pago-notas','pago-fecha-ya-pagada'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('pago-tipo').value = 'fijo';
   document.getElementById('pago-frecuencia').value = '1';
   document.getElementById('pago-pausado').checked = false;
+  document.getElementById('pago-ya-pagada').checked = false;
+  document.getElementById('pago-ya-pagada-fecha-wrap').style.display = 'none';
+  document.getElementById('pago-tx-existente').innerHTML = '';
   poblarPagoCategorias();
   poblarSelectsQuien();
   onPagoTipoChange();
@@ -4571,6 +4625,11 @@ function openModalPago(editId) {
       if (p.quien) document.getElementById('pago-quien').value = p.quien;
       document.getElementById('pago-notas').value = p.notas || '';
       document.getElementById('pago-pausado').checked = (p.activo === false);
+      const pagadoAhora = calcPagadoEstePeriodo(p);
+      document.getElementById('pago-ya-pagada').checked = pagadoAhora;
+      document.getElementById('pago-ya-pagada-fecha-wrap').style.display = pagadoAhora ? '' : 'none';
+      document.getElementById('pago-fecha-ya-pagada').value = pagadoAhora ? (p.ultima_fecha_pagada || '') : '';
+      if (pagadoAhora) poblarPagoTxExistente();
       onPagoTipoChange();
     }
   } else {
@@ -4589,7 +4648,6 @@ function savePago() {
   if (esRecurrente && !document.getElementById('pago-dia').value) { toast('Indica el día de pago', '#C44B2B'); return; }
   if (tipo === 'unico' && !document.getElementById('pago-fecha').value) { toast('Indica la fecha de vencimiento', '#C44B2B'); return; }
   const editId = document.getElementById('pago-edit-id').value;
-  const existente = editId ? (pagosProgramadosData.pagos || []).find(x => x.id === editId) : null;
   const pago = {
     id: editId || 'PP' + Date.now(),
     nombre,
@@ -4599,7 +4657,9 @@ function savePago() {
     dia_pago: esRecurrente ? (parseInt(document.getElementById('pago-dia').value) || 1) : null,
     frecuencia_meses: esRecurrente ? (parseInt(document.getElementById('pago-frecuencia').value) || 1) : 1,
     fecha_vencimiento: !esRecurrente ? (document.getElementById('pago-fecha').value || '') : '',
-    ultima_fecha_pagada: existente ? (existente.ultima_fecha_pagada || '') : '',
+    ultima_fecha_pagada: document.getElementById('pago-ya-pagada').checked
+      ? (document.getElementById('pago-fecha-ya-pagada').value || hoyStr())
+      : '',
     activo: !document.getElementById('pago-pausado').checked,
     quien: document.getElementById('pago-quien').value || '',
     notas: document.getElementById('pago-notas').value.trim(),
@@ -4644,6 +4704,10 @@ function pausarPago(id) {
 }
 
 // ── Cálculo de próxima fecha / estado ──
+function hoyStr() {
+  const h = new Date();
+  return h.getFullYear() + '-' + pad(h.getMonth()+1) + '-' + pad(h.getDate());
+}
 function _parseYMD(s) {
   if (!s) return null;
   const p = String(s).split('-').map(Number);
